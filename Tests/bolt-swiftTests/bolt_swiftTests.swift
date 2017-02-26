@@ -13,7 +13,7 @@ class bolt_swiftTests: XCTestCase {
         try conn.connect() { (success) in
             if success == true {
                 connectionExp.fulfill()
-                let statement = "CREATE (n:FirstNode {name:{name}})" // RETURN n
+                let statement = "CREATE (n:FirstNode {name:{name}}) RETURN n"
                 let parameters = Map(dictionary: [ "name": "Steven" ])
                 let request = Message.run(statement: statement, parameters: parameters)
                 do {
@@ -50,8 +50,18 @@ class bolt_swiftTests: XCTestCase {
         let bytes: [Byte] = [0xb1, 0x70, 0xa2, 0xd0, 0x16, 0x72, 0x65, 0x73, 0x75, 0x6c, 0x74, 0x5f, 0x61, 0x76, 0x61, 0x69, 0x6c, 0x61, 0x62, 0x6c, 0x65, 0x5f, 0x61, 0x66, 0x74, 0x65, 0x72, 0x1, 0x86, 0x66, 0x69, 0x65, 0x6c, 0x64, 0x73, 0x90]
         let response = try Response.unpack(bytes)
         
-        // Expected:
+        // Expected: SUCCESS
         // result_available_after: 1 (ms)
         // fields: [] (empty List)
+    }
+    
+    func testOtherResponse() throws {
+        let bytes: [Byte] = [0xb1, 0x70, 0xa2, 0xd0, 0x16, 0x72, 0x65, 0x73, 0x75, 0x6c, 0x74, 0x5f, 0x61, 0x76, 0x61, 0x69, 0x6c, 0x61, 0x62, 0x6c, 0x65, 0x5f, 0x61, 0x66, 0x74, 0x65, 0x72, 0x2, 0x86, 0x66, 0x69, 0x65, 0x6c, 0x64, 0x73, 0x91, 0x81, 0x6e]
+        let response = try Response.unpack(bytes)
+
+        // Expected: SUCCESS
+        // result_available_after: 2 (ms)
+        // fields: ["n"]
+
     }
 }
