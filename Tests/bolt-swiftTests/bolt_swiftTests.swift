@@ -3,11 +3,14 @@ import packstream_swift
 
 @testable import bolt_swift
 
+fileprivate let kUsername = "neo4j"
+fileprivate let kPasscode = "<passcode>"
+
 class bolt_swiftTests: XCTestCase {
     func testConnection() throws {
         let connectionExp = expectation(description: "Login successful")
         
-        let settings = ConnectionSettings(username: "neo4j", password: "<passcode>", userAgent: "Bah")
+        let settings = ConnectionSettings(username: kUsername, password: kPasscode)
         let conn = SwiftSocketConnection(hostname: "localhost", settings: settings)
         try conn.connect { (success) in
             do {
@@ -15,8 +18,8 @@ class bolt_swiftTests: XCTestCase {
                     connectionExp.fulfill()
                     let _ = try self.createNode(connection: conn)
                 }
-            } catch {
-                // poop
+            } catch(let error) {
+                XCTFail("Did not expect any errors, but got \(error)")
             }
         }
     
@@ -39,8 +42,8 @@ class bolt_swiftTests: XCTestCase {
                     cypherExp.fulfill()
                     let _ = try self.pullResults(connection: conn)
                 }
-            } catch {
-                // poop
+            } catch(let error) {
+                XCTFail("Did not expect any errors, but got \(error)")
             }
         }
         
@@ -155,5 +158,89 @@ class bolt_swiftTests: XCTestCase {
         let (propertyKey, propertyValue) = node.properties.first!
         XCTAssertEqual("name", propertyKey)
         XCTAssertEqual("Steven", propertyValue as! String)
+    }
+    
+    // source: http://jexp.de/blog/2014/03/quickly-create-a-100k-neo4j-graph-data-model-with-cypher-only/
+    func testMichaels100k() throws {
+        let stmt1 = "WITH [\"Andres\",\"Wes\",\"Rik\",\"Mark\",\"Peter\",\"Kenny\",\"Michael\",\"Stefan\",\"Max\",\"Chris\"] AS names " +
+                    "FOREACH (r IN range(0,100000) | CREATE (:User {id:r, name:names[r % size(names)]+\" \"+r}))"
+        let stmt2 = "with [\"Mac\",\"iPhone\",\"Das Keyboard\",\"Kymera Wand\",\"HyperJuice Battery\",\"Peachy Printer\",\"HexaAirBot\"," +
+                    "\"AR-Drone\",\"Sonic Screwdriver\",\"Zentable\",\"PowerUp\"] as names " +
+                    "foreach (r in range(0,50) | create (:Product {id:r, name:names[r % size(names)]+\" \"+r}))"
+        let stmt3 = "match (u:User),(p:Product) with u,p limit 5000000 where rand() < 0.1 create (u)-[:OWN]->(p)"
+        let stmt4 = "match (u:User),(p:Product)\n" +
+                    "with u,p\n" +
+                    "// increase skip value from 0 to 4M in 1M steps\n" +
+                    "skip 1000000\n" +
+                    "limit 5000000\n" +
+                    "where rand() < 0.1\n" +
+                    "with u,p\n" +
+                    "limit 100000\n" +
+                    "merge (u)-[:OWN]->(p);"
+        let stmt5 = "create index on :User(id);\n" +
+                    "create index on :Product(id);"
+        let stmt6 = "match (u:User {id:1})-[:OWN]->()<-[:OWN]-(other)\n" +
+                    "return other.name,count(*)\n" +
+                    "order by count(*) desc\n" +
+                    "limit 5;"
+        let stmt7 = "match (u:User {id:3})-[:OWN]->()<-[:OWN]-(other)-[:OWN]->(p)" +
+                    "return p.name,count(*)" +
+                    "order by count(*) desc" +
+                    "limit 5;"
+        
+        
+        
+        let exp = expectation(description: "All statements success")
+
+        let settings = ConnectionSettings(username: kUsername, password: kPasscode)
+        let conn = SwiftSocketConnection(hostname: "localhost", settings: settings)
+        try conn.connect { (success) in
+            do {
+                if success == true {
+
+                    let dispatchGroup = DispatchGroup()
+
+                    for statement in [stmt1, stmt2, stmt3, stmt4, stmt5, stmt6, stmt7] {
+                        
+                        print("\n** RUNNING \(statement) **")
+                        
+                        let request = Request.run(statement: statement, parameters: Map(dictionary: [:]))
+                        dispatchGroup.enter()
+                        try conn.request(request) { (success, response) in
+                            
+                            if success == false || response == nil {
+                                XCTFail("Unexpected response")
+                            }
+                            
+                            let request = Request.pullAll()
+                            print("-> PULL ALL")
+                            do {
+                                try conn.request(request) { (success, response) in
+                                    if success == false || response == nil {
+                                        XCTFail("Unexpected response")
+                                    }
+                                    dispatchGroup.leave()
+                                }
+                            } catch(let error) {
+                                print("Unexpected error while pulling: \(error)")
+                            }
+                            
+                        }
+
+                        dispatchGroup.wait()
+                    }
+                    
+                    exp.fulfill()
+                }
+            } catch(let error) {
+                XCTFail("Did not expect any errors, but got \(error)")
+            }
+        }
+        
+        self.waitForExpectations(timeout: 300000) { (error) in
+            print("Done")
+        }
+
+        
     }
 }
