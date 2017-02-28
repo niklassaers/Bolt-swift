@@ -15,13 +15,51 @@ public struct Response {
         case empty = 0x00
         case success = 0x70
         case record = 0x71
-        case ignored = 0x7e
-        case failure = 0x7f
+        case ignored = 0x7E
+        case failure = 0x7F
     }
+    
+    public struct RecordType {
+        static let node: Byte = 0x4E
+        static let relationship: Byte = 0x52
+        static let path: Byte = 0x50
+        static let unboundRelationship: Byte = 0x72
+    }
+
     
     enum ResponseError: Error {
         case tooFewBytes
         case invalidResponseType
+    }
+    
+    public func asNode() -> Node? {
+        if category != .record ||
+           items.count != 1 {
+            return nil
+        }
+        
+        
+        
+        let list = items[0] as? List
+        guard let items = list?.items,
+              items.count == 1,
+            
+              let structure = items[0] as? Structure,
+              structure.signature == Response.RecordType.node,
+              structure.items.count == 3,
+            
+              let nodeId = structure.items.first?.asUInt64(),
+              let labelList = structure.items[1] as? List,
+              let labels = labelList.items as? [String],
+              let propertyMap = structure.items[2] as? Map
+              else {
+                return nil
+        }
+        
+        let properties = propertyMap.dictionary
+        
+        let node = Node(id: UInt64(nodeId), labels: labels, properties: properties)
+        return node
     }
     
     public static func unchunk(_ bytes: [Byte]) throws -> [Byte] {
@@ -84,7 +122,9 @@ public struct Response {
         case .structure:
             let s = try Structure.unpack(bytes)
             if let category = Category(rawValue: s.signature) {
-                return Response(category: category, items: s.items)
+                let response = Response(category: category, items: s.items)
+                print(response)
+                return response
             } else {
                 throw ResponseError.invalidResponseType
             }

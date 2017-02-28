@@ -55,7 +55,7 @@ class SwiftSocketConnection: NSObject {
     }
     
     private func initialize() throws {
-        let message = Message.initialize(settings: settings)
+        let message = Request.initialize(settings: settings)
         do {
             let chunks = try message.chunk()
             for chunk in chunks {
@@ -98,7 +98,7 @@ class SwiftSocketConnection: NSObject {
         case failure = 0x7f
     }
     
-    private func chunkAndSend(request: Message) throws {
+    private func chunkAndSend(request: Request) throws {
 
         let chunks = try request.chunk()
         
@@ -114,11 +114,9 @@ class SwiftSocketConnection: NSObject {
 
     }
     
-    func request(_ request: Message, completionHandler: (Bool) -> ()) throws {
+    func request(_ request: Request, completionHandler: (Bool, Response?) -> ()) throws {
 
-        try chunkAndSend(request: request) // -> "result_available_after: 1ms \ fields: List: []
-        
-        //try chunkAndSend(request: Message.pullAll())
+        try chunkAndSend(request: request)
         
         print("Request successfully sent")
         
@@ -128,7 +126,7 @@ class SwiftSocketConnection: NSObject {
                 let unchunkedData = try Response.unchunk(responseData)
                 let response = try Response.unpack(unchunkedData)
                 print(response)
-                completionHandler(true)
+                completionHandler(true, response)
             }
         } else {
             throw ConnectionError.requestError
