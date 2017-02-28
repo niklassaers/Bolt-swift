@@ -58,7 +58,6 @@ class bolt_swiftTests: XCTestCase {
             do {
                 if success {
                     pullAllExp.fulfill()
-                    try self.pullResults(connection: conn)
                 }
             } catch {
                 // poop
