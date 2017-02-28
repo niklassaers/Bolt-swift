@@ -14,7 +14,7 @@ public struct Request {
         case discard_all = 0x2f
         case pull_all = 0x3f
     }
-    
+
     enum RequestErrors: Error {
         case unchunkError
     }
@@ -25,9 +25,9 @@ public struct Request {
         self.command = command
         self.items = items
     }
-    
+
     public static func initialize(settings: ConnectionSettings) -> Request {
-        
+
         let agent = settings.userAgent
 
         let authMap = Map(dictionary: ["scheme": "basic",
@@ -36,36 +36,35 @@ public struct Request {
 
         return Request(command: .initialize, items: [agent, authMap])
     }
-    
+
     public static func ackFailure() -> Request {
         return Request(command: .ack_failure, items: [])
     }
-    
+
     public static func reset() -> Request {
         return Request(command: .reset, items: [])
     }
-    
+
     public static func run(statement: String, parameters: Map) -> Request {
         return Request(command: .run, items: [statement, parameters])
     }
-    
+
     public static func discardAll() -> Request {
         return Request(command: .discard_all, items: [])
     }
-    
+
     public static func pullAll() -> Request {
         return Request(command: .pull_all, items: [])
     }
-    
+
     public func chunk() throws -> [[Byte]] {
-        
+
         do {
             let bytes = try self.pack()
             var chunks = [[Byte]]()
             let numChunks = ((bytes.count + 2) / Request.kMaxChunkSize) + 1
-            // numChunks = ((bytes.count + 2 + (numChunks * 2)) / Request.kMaxChunkSize) + 1 // don't care, go a bit out of bounds if you must
             for i in 0 ..< numChunks {
-                
+
                 let start = i * (Request.kMaxChunkSize - 2)
                 var end = i == (numChunks - 1) ?
                     start + (Request.kMaxChunkSize - 4) :
@@ -73,24 +72,24 @@ public struct Request {
                 if end >= bytes.count {
                     end = bytes.count - 1
                 }
-                
+
                 let count = UInt16(end - start + 1)
                 let countBytes = try count.pack()
-                
+
                 if i == (numChunks - 1) {
                     chunks.append(countBytes + bytes[start...end] + [ 0x00, 0x00 ])
                 } else {
                     chunks.append(countBytes + bytes[start...end])
                 }
             }
-            
+
             return chunks
-            
+
         } catch(let error) {
             throw error
         }
     }
-    
+
     private func pack() throws -> [Byte] {
         let s = Structure(signature: command.rawValue, items: items)
         do {
@@ -99,10 +98,10 @@ public struct Request {
             throw error
         }
     }
-    
+
     public static func unchunk(chunks: [[Byte]]) throws -> Request {
-        
+
         throw RequestErrors.unchunkError
     }
-    
+
 }
