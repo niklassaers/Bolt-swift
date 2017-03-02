@@ -165,7 +165,7 @@ class bolt_swiftTests: XCTestCase {
         let stmt2 = "with [\"Mac\",\"iPhone\",\"Das Keyboard\",\"Kymera Wand\",\"HyperJuice Battery\",\"Peachy Printer\",\"HexaAirBot\"," +
                     "\"AR-Drone\",\"Sonic Screwdriver\",\"Zentable\",\"PowerUp\"] as names " +
                     "foreach (r in range(0,50) | create (:Product {id:r, name:names[r % size(names)]+\" \"+r}))"
-        let stmt3 = "match (u:User),(p:Product) with u,p limit 5000000 where rand() < 0.1 create (u)-[:OWN]->(p)"
+        let stmt3 = "match (u:User),(p:Product) with u,p limit 500000 where rand() < 0.1 create (u)-[:OWN]->(p)"
         let stmt4 = "match (u:User),(p:Product)\n" +
                     "with u,p\n" +
                     "// increase skip value from 0 to 4M in 1M steps\n" +
@@ -237,5 +237,64 @@ class bolt_swiftTests: XCTestCase {
             print("Done")
         }
 
+    }
+    
+    func testRubbishCypher() throws {
+        let stmt = "42"
+        
+        let exp = expectation(description: "Rubbish cypher failed correctly")
+        
+        let settings = ConnectionSettings(username: kUsername, password: kPasscode)
+        let conn = try Connection(hostname: "localhost", settings: settings)
+        try conn.connect { (success) in
+            if success == false {
+                XCTFail("Could not log in")
+                return
+            }
+
+            do {
+                let dispatchGroup = DispatchGroup()
+                
+                let request = Request.run(statement: stmt, parameters: Map(dictionary: [:]))
+                dispatchGroup.enter()
+                try conn.request(request) { (success, response) in
+                    
+                    if success == true || response == nil {
+                        XCTFail("Unexpected response")
+                    }
+                    
+                    let request = Request.pullAll()
+                    do {
+                        try conn.request(request) { (success, response) in
+                            guard let response = response else {
+                                XCTFail("Unexpected response")
+                                return
+                            }
+                            
+                            if success == false || response.category != .ignored || response.items.count > 0 {
+                                XCTFail("Unexpected response")
+                                return
+                            }
+                            dispatchGroup.leave()
+                        }
+                    } catch(let error) {
+                        XCTFail("Unexpected error while pulling: \(error)")
+                        return
+                    }
+                     
+                    dispatchGroup.wait()
+                }
+                
+                exp.fulfill()
+            
+            } catch(let error) {
+                XCTFail("Did not expect any errors, but got \(error)")
+            }
+        }
+        
+        self.waitForExpectations(timeout: 300000) { (_) in
+            print("Done")
+        }
+        
     }
 }

@@ -95,7 +95,7 @@ class Connection: NSObject {
         let unchunkedData = try Response.unchunk(responseData)
         let response = try Response.unpack(unchunkedData)
         print(response)
-        completionHandler(true, response)
+        completionHandler(response.category != .failure, response)
     }
 
 }
