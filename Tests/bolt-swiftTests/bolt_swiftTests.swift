@@ -11,7 +11,7 @@ class bolt_swiftTests: XCTestCase {
         let connectionExp = expectation(description: "Login successful")
 
         let settings = ConnectionSettings(username: kUsername, password: kPasscode)
-        let conn = SwiftSocketConnection(hostname: "localhost", settings: settings)
+        let conn = try Connection(hostname: "localhost", settings: settings)
         try conn.connect { (success) in
             do {
                 if success == true {
@@ -29,7 +29,7 @@ class bolt_swiftTests: XCTestCase {
 
     }
 
-    func createNode(connection conn: SwiftSocketConnection) throws -> XCTestExpectation {
+    func createNode(connection conn: Connection) throws -> XCTestExpectation {
 
         let cypherExp = expectation(description: "Perform cypher query")
 
@@ -50,7 +50,7 @@ class bolt_swiftTests: XCTestCase {
         return cypherExp
     }
 
-    func pullResults(connection conn: SwiftSocketConnection) throws -> XCTestExpectation {
+    func pullResults(connection conn: Connection) throws -> XCTestExpectation {
 
         let pullAllExp = expectation(description: "Perform pull All")
 
@@ -189,7 +189,7 @@ class bolt_swiftTests: XCTestCase {
         let exp = expectation(description: "All statements success")
 
         let settings = ConnectionSettings(username: kUsername, password: kPasscode)
-        let conn = SwiftSocketConnection(hostname: "localhost", settings: settings)
+        let conn = try Connection(hostname: "localhost", settings: settings)
         try conn.connect { (success) in
             do {
                 if success == true {
