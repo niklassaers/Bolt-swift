@@ -175,15 +175,15 @@ class bolt_swiftTests: XCTestCase {
                     "with u,p\n" +
                     "limit 100000\n" +
                     "merge (u)-[:OWN]->(p);"
-        let stmt5 = "create index on :User(id);\n" +
-                    "create index on :Product(id);"
-        let stmt6 = "match (u:User {id:1})-[:OWN]->()<-[:OWN]-(other)\n" +
+        let stmt5 = "create index on :User(id)"
+        let stmt6 = "create index on :Product(id)"
+        let stmt7 = "match (u:User {id:1})-[:OWN]->()<-[:OWN]-(other)\n" +
                     "return other.name,count(*)\n" +
                     "order by count(*) desc\n" +
                     "limit 5;"
-        let stmt7 = "match (u:User {id:3})-[:OWN]->()<-[:OWN]-(other)-[:OWN]->(p)" +
-                    "return p.name,count(*)" +
-                    "order by count(*) desc" +
+        let stmt8 = "match (u:User {id:3})-[:OWN]->()<-[:OWN]-(other)-[:OWN]->(p) " +
+                    "return p.name,count(*) " +
+                    "order by count(*) desc " +
                     "limit 5;"
 
         let exp = expectation(description: "All statements success")
@@ -196,9 +196,7 @@ class bolt_swiftTests: XCTestCase {
 
                     let dispatchGroup = DispatchGroup()
 
-                    for statement in [ "BEGIN", stmt1, stmt2, stmt3, stmt4, stmt5, stmt6, stmt7, "ROLLBACK" ] {
-
-                        print("\n** RUNNING \(statement) **")
+                    for statement in [ stmt1, stmt2, stmt3, stmt4, stmt5, stmt6, stmt7, stmt8 ] {
 
                         let request = Request.run(statement: statement, parameters: Map(dictionary: [:]))
                         dispatchGroup.enter()
@@ -209,7 +207,6 @@ class bolt_swiftTests: XCTestCase {
                             }
 
                             let request = Request.pullAll()
-                            print("-> PULL ALL")
                             do {
                                 try conn.request(request) { (success, response) in
                                     if success == false || response == nil {
@@ -239,6 +236,58 @@ class bolt_swiftTests: XCTestCase {
 
     }
     
+    func testMichaels100kCannotFitInATransaction() throws {
+        let stmt1 = "WITH [\"Andres\",\"Wes\",\"Rik\",\"Mark\",\"Peter\",\"Kenny\",\"Michael\",\"Stefan\",\"Max\",\"Chris\"] AS names " +
+        "FOREACH (r IN range(0,100000) | CREATE (:User {id:r, name:names[r % size(names)]+\" \"+r}))"
+        let stmt2 = "create index on :User(id)"
+        
+        let exp = expectation(description: "All statements success")
+        
+        let settings = ConnectionSettings(username: kUsername, password: kPasscode)
+        let conn = try Connection(hostname: "localhost", settings: settings)
+        try conn.connect { (success) in
+            do {
+                if success == true {
+                    
+                    let dispatchGroup = DispatchGroup()
+                    
+                    for statement in [ "BEGIN", stmt1, stmt2, "ROLLBACK" ] {
+                        
+                        if statement == "ROLLBACK" {
+                            XCTFail("Should never get here")
+                        }
+                        
+                        let request = Request.run(statement: statement, parameters: Map(dictionary: [:]))
+                        dispatchGroup.enter()
+                        try conn.request(request) { (success, response) in
+
+                            let request = Request.pullAll()
+                            do {
+                                try conn.request(request) { (success, response) in
+                                    dispatchGroup.leave()
+                                }
+                            } catch(let error) {
+                                print("Unexpected error while pulling: \(error)")
+                            }
+                        }
+                        
+                        dispatchGroup.wait()
+                    }
+                    
+                }
+            } catch {
+                // In a transaction: Cannot update schema after data update
+                exp.fulfill()
+            }
+        }
+        
+        self.waitForExpectations(timeout: 300000) { (_) in
+            print("Done")
+        }
+        
+    }
+
+    
     func testRubbishCypher() throws {
         let stmt = "42"
         
@@ -252,49 +301,67 @@ class bolt_swiftTests: XCTestCase {
                 return
             }
 
+            let dispatchGroup = DispatchGroup()
             do {
-                let dispatchGroup = DispatchGroup()
                 
                 let request = Request.run(statement: stmt, parameters: Map(dictionary: [:]))
                 dispatchGroup.enter()
                 try conn.request(request) { (success, response) in
                     
-                    if success == true || response == nil {
-                        XCTFail("Unexpected response")
-                    }
-                    
-                    let request = Request.pullAll()
-                    do {
-                        try conn.request(request) { (success, response) in
-                            guard let response = response else {
-                                XCTFail("Unexpected response")
-                                return
-                            }
-                            
-                            if success == false || response.category != .ignored || response.items.count > 0 {
-                                XCTFail("Unexpected response")
-                                return
-                            }
-                            dispatchGroup.leave()
-                        }
-                    } catch(let error) {
-                        XCTFail("Unexpected error while pulling: \(error)")
-                        return
-                    }
-                     
-                    dispatchGroup.wait()
+                    XCTFail("Unexpected response")
+                    exp.fulfill()
+                    dispatchGroup.leave()
                 }
-                
-                exp.fulfill()
-            
             } catch(let error) {
-                XCTFail("Did not expect any errors, but got \(error)")
+                exp.fulfill()
+                dispatchGroup.leave()
             }
+            
+            dispatchGroup.wait()
         }
         
         self.waitForExpectations(timeout: 300000) { (_) in
             print("Done")
         }
         
+    }
+}
+
+struct Node {
+    
+    public let id: UInt64
+    public let labels: [String]
+    public let properties: [String: PackProtocol]
+    
+}
+
+
+extension Response {
+    func asNode() -> Node? {
+        if category != .record ||
+            items.count != 1 {
+            return nil
+        }
+        
+        let list = items[0] as? List
+        guard let items = list?.items,
+            items.count == 1,
+            
+            let structure = items[0] as? Structure,
+            structure.signature == Response.RecordType.node,
+            structure.items.count == 3,
+            
+            let nodeId = structure.items.first?.asUInt64(),
+            let labelList = structure.items[1] as? List,
+            let labels = labelList.items as? [String],
+            let propertyMap = structure.items[2] as? Map
+            else {
+                return nil
+        }
+        
+        let properties = propertyMap.dictionary
+        
+        let node = Node(id: UInt64(nodeId), labels: labels, properties: properties)
+        return node
     }
 }

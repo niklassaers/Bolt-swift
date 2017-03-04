@@ -29,34 +29,40 @@ public struct Response {
     enum ResponseError: Error {
         case tooFewBytes
         case invalidResponseType
+        case syntaxError(message: String)
+        case indexNotFound(message: String)
+        case forbiddenDueToTransactionType(message: String)
+        case constraintVerificationFailed(message: String)
     }
-
-    public func asNode() -> Node? {
-        if category != .record ||
-           items.count != 1 {
+    
+    public func asError() -> Error? {
+        if category != .failure {
             return nil
         }
-
-        let list = items[0] as? List
-        guard let items = list?.items,
-              items.count == 1,
-
-              let structure = items[0] as? Structure,
-              structure.signature == Response.RecordType.node,
-              structure.items.count == 3,
-
-              let nodeId = structure.items.first?.asUInt64(),
-              let labelList = structure.items[1] as? List,
-              let labels = labelList.items as? [String],
-              let propertyMap = structure.items[2] as? Map
-              else {
-                return nil
+        
+        for item in items {
+            if let map = item as? Map,
+                let message = map.dictionary["message"] as? String,
+                let code = map.dictionary["code"] as? String {
+                
+                switch code {
+                case "Neo.ClientError.Statement.SyntaxError":
+                    return ResponseError.syntaxError(message: message)
+                case "Neo.ClientError.Schema.IndexNotFound":
+                    return ResponseError.indexNotFound(message: message)
+                case "Neo.ClientError.Transaction.ForbiddenDueToTransactionType":
+                    return ResponseError.forbiddenDueToTransactionType(message: message)
+                case "Neo.ClientError.Statement.ConstraintVerificationFailed":
+                    return ResponseError.constraintVerificationFailed(message: message)
+                    
+                default:
+                    print("Response error with \(code) unknown, thus ignored")
+                }
+                
+            }
         }
-
-        let properties = propertyMap.dictionary
-
-        let node = Node(id: UInt64(nodeId), labels: labels, properties: properties)
-        return node
+        
+        return nil
     }
 
     public static func unchunk(_ bytes: [Byte]) throws -> [Byte] {
@@ -120,7 +126,6 @@ public struct Response {
             let s = try Structure.unpack(bytes[0..<bytes.count])
             if let category = Category(rawValue: s.signature) {
                 let response = Response(category: category, items: s.items)
-                print(response)
                 return response
             } else {
                 throw ResponseError.invalidResponseType

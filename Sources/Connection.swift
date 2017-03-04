@@ -1,7 +1,7 @@
 import Foundation
 import packstream_swift
 
-class Connection: NSObject {
+public class Connection: NSObject {
 
     private let hostname: String
     private let port: Int
@@ -11,8 +11,9 @@ class Connection: NSObject {
     private var outputStream: OutputStream?
 
     private var socket: SocketProtocol
+    public var currentTransactionBookmark: String?
 
-    init(hostname: String = "127.0.0.1", port: Int = 7687, settings: ConnectionSettings = ConnectionSettings()) throws {
+    public init(hostname: String = "localhost", port: Int = 7687, settings: ConnectionSettings = ConnectionSettings()) throws {
 
         self.hostname = hostname
         self.port = port
@@ -22,13 +23,9 @@ class Connection: NSObject {
         super.init()
     }
 
-    func connect(completion: (_ success: Bool) -> Void) throws {
-        do {
-            try socket.connect(timeout: 10)
-            try initBolt()
-        } catch(let error) {
-            print(error)
-        }
+    public func connect(completion: (_ success: Bool) -> Void) throws {
+        try socket.connect(timeout: 10)
+        try initBolt()
         try initialize()
         completion(true)
     }
@@ -51,16 +48,14 @@ class Connection: NSObject {
             try socket.send(bytes: chunk)
         }
 
-        print("Authentication successfully sent")
         let responseData = try socket.receive(expectedNumberOfBytes: 1024) //TODO: Ensure I get all chunks back
-        print("Got \(responseData.count) bytes")
         let unchunkedData = try Response.unchunk(responseData)
         let response = try Response.unpack(unchunkedData)
-        print(response)
+
         // TODO: throw ConnectionError.authenticationError on error
     }
 
-    enum ConnectionError: Error {
+    public enum ConnectionError: Error {
         case unknownVersion
         case authenticationError
         case requestError
@@ -72,7 +67,7 @@ class Connection: NSObject {
         case ignored = 0x7e
         case failure = 0x7f
     }
-
+    
     private func chunkAndSend(request: Request) throws {
 
         let chunks = try request.chunk()
@@ -83,19 +78,48 @@ class Connection: NSObject {
         }
 
     }
+    
+    private func parseMeta(_ meta: [PackProtocol]) {
+        for item in meta {
+            if let map = item as? Map {
+                for (key, value) in map.dictionary {
+                    switch key {
+                    case "bookmark":
+                        self.currentTransactionBookmark = value as? String
+                    case "stats":
+                        break
+                    case "result_available_after":
+                        break
+                    case "result_consumed_after":
+                        break
+                    case "type":
+                        break
+                    case "fields":
+                        break
+                    default:
+                        print("Couldn't parse metadata \(key)")
+                    }
+                }
+            }
+        }
+    }
 
-    func request(_ request: Request, completionHandler: (Bool, Response?) -> Void) throws {
+    public func request(_ request: Request, completionHandler: (Bool, Response?) throws -> Void) throws {
 
         try chunkAndSend(request: request)
 
-        print("Request successfully sent")
-
         let responseData = try socket.receive(expectedNumberOfBytes: 1024) //TODO: Ensure I get all chunks back
-        print("Got \(responseData.count) bytes")
         let unchunkedData = try Response.unchunk(responseData)
         let response = try Response.unpack(unchunkedData)
-        print(response)
-        completionHandler(response.category != .failure, response)
+        if let error = response.asError() {
+            throw error
+        }
+        
+        if response.category != .record {
+            parseMeta(response.items)
+        }
+        
+        try completionHandler(response.category != .failure, response)
     }
 
 }
