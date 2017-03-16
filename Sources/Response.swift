@@ -20,10 +20,10 @@ public struct Response {
     }
 
     public struct RecordType {
-        static let node: Byte = 0x4E
-        static let relationship: Byte = 0x52
-        static let path: Byte = 0x50
-        static let unboundRelationship: Byte = 0x72
+        public static let node: Byte = 0x4E
+        public static let relationship: Byte = 0x52
+        public static let path: Byte = 0x50
+        public static let unboundRelationship: Byte = 0x72
     }
 
     enum ResponseError: Error {
