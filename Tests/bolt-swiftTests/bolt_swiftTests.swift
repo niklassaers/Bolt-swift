@@ -1,6 +1,10 @@
 import XCTest
 import packstream_swift
 
+#if os(Linux)
+    import Dispatch
+#endif
+
 @testable import bolt_swift
 
 fileprivate let kUsername = "neo4j"
@@ -68,7 +72,14 @@ class bolt_swiftTests: XCTestCase {
 
     static var allTests: [(String, (bolt_swiftTests) -> () throws -> Void)] {
         return [
-            ("testExample", testConnection),
+            ("testConnection", testConnection),
+            ("testUnpackInitResponse", testUnpackInitResponse),
+            ("testUnpackEmptyRequestResponse", testUnpackEmptyRequestResponse),
+            ("testUnpackRequestResponseWithNode", testUnpackRequestResponseWithNode),
+            ("testUnpackPullAllRequestAfterCypherRequest", testUnpackPullAllRequestAfterCypherRequest),
+            ("testMichaels100k", testMichaels100k),
+            ("testMichaels100kCannotFitInATransaction", testMichaels100kCannotFitInATransaction),
+            ("testRubbishCypher", testRubbishCypher),
         ]
     }
 

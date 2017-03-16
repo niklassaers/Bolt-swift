@@ -1,6 +1,10 @@
 import Foundation
 import packstream_swift
 
+#if os(Linux)
+import Dispatch
+#endif
+
 public class Connection: NSObject {
 
     private let hostname: String
