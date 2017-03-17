@@ -1,11 +1,11 @@
 import XCTest
-import packstream_swift
+import PackStream
 
 #if os(Linux)
     import Dispatch
 #endif
 
-@testable import bolt_swift
+@testable import Bolt
 
 fileprivate let kUsername = "neo4j"
 fileprivate let kPasscode = "<passcode>"
@@ -323,7 +323,7 @@ class bolt_swiftTests: XCTestCase {
                     exp.fulfill()
                     dispatchGroup.leave()
                 }
-            } catch(let error) {
+            } catch {
                 exp.fulfill()
                 dispatchGroup.leave()
             }

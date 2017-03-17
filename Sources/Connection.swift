@@ -1,5 +1,5 @@
 import Foundation
-import packstream_swift
+import PackStream
 
 #if os(Linux)
 import Dispatch
@@ -54,7 +54,8 @@ public class Connection: NSObject {
 
         let responseData = try socket.receive(expectedNumberOfBytes: 1024) //TODO: Ensure I get all chunks back
         let unchunkedData = try Response.unchunk(responseData)
-        let response = try Response.unpack(unchunkedData)
+        let _ = try Response.unpack(unchunkedData)
+        //let response = try Response.unpack(unchunkedData)
 
         // TODO: throw ConnectionError.authenticationError on error
     }
@@ -77,7 +78,8 @@ public class Connection: NSObject {
         let chunks = try request.chunk()
 
         for chunk in chunks {
-            let response = try socket.send(bytes: chunk)
+            let _ = try socket.send(bytes: chunk)
+            // let response = try socket.send(bytes: chunk)
             // TODO: Use response
         }
 
