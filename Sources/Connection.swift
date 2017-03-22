@@ -7,22 +7,16 @@ import Dispatch
 
 public class Connection: NSObject {
 
-    private let hostname: String
-    private let port: Int
     private let settings: ConnectionSettings
-
-    private var inputStream: InputStream?
-    private var outputStream: OutputStream?
 
     private var socket: SocketProtocol
     public var currentTransactionBookmark: String?
 
-    public init(hostname: String = "localhost", port: Int = 7687, settings: ConnectionSettings = ConnectionSettings()) throws {
-
-        self.hostname = hostname
-        self.port = port
+    public init(socket: SocketProtocol,
+                settings: ConnectionSettings = ConnectionSettings() ) {
+        
+        self.socket = socket
         self.settings = settings
-        self.socket = try UnencryptedSocket(hostname: hostname, port: port)
 
         super.init()
     }
