@@ -34,17 +34,17 @@ public struct Response {
         case forbiddenDueToTransactionType(message: String)
         case constraintVerificationFailed(message: String)
     }
-    
+
     public func asError() -> Error? {
         if category != .failure {
             return nil
         }
-        
+
         for item in items {
             if let map = item as? Map,
                 let message = map.dictionary["message"] as? String,
                 let code = map.dictionary["code"] as? String {
-                
+
                 switch code {
                 case "Neo.ClientError.Statement.SyntaxError":
                     return ResponseError.syntaxError(message: message)
@@ -54,30 +54,30 @@ public struct Response {
                     return ResponseError.forbiddenDueToTransactionType(message: message)
                 case "Neo.ClientError.Statement.ConstraintVerificationFailed":
                     return ResponseError.constraintVerificationFailed(message: message)
-                    
+
                 default:
                     print("Response error with \(code) unknown, thus ignored")
                 }
-                
+
             }
         }
-        
+
         return nil
     }
 
     public static func unchunk(_ bytes: [Byte]) throws -> [[Byte]] {
         var pos = 0
         var responses = [[Byte]]()
-        
+
         while pos < bytes.count {
             let (responseBytes, endPos) = try unchunk(bytes[pos..<bytes.count], fromPos: pos)
             responses.append(responseBytes)
             pos = endPos
         }
-        
+
         return responses
     }
-    
+
     private static func unchunk(_ bytes: ArraySlice<Byte>, fromPos: Int = 0) throws -> ([Byte], Int) {
 
         if bytes.count < 2 {
@@ -107,7 +107,7 @@ public struct Response {
         let unchunkedResponseBytes = chunks.reduce([Byte](), { (result, chunk) -> [Byte] in
             return result + chunk
         })
-        
+
         return (unchunkedResponseBytes, pos)
     }
 

@@ -12,7 +12,7 @@ fileprivate let kUsername = "neo4j"
 fileprivate let kPasscode = "<passcode>"
 
 class bolt_swiftTests: XCTestCase {
-    
+
     func testConnection() throws {
         let connectionExp = expectation(description: "Login successful")
 
@@ -204,15 +204,15 @@ class bolt_swiftTests: XCTestCase {
         try performAsLoggedIn { (conn, dispatchGroup) in
 
             for statement in [ stmt1, stmt2, stmt3, stmt4, stmt5, stmt6, stmt7, stmt8 ] {
-                
+
                 let request = Request.run(statement: statement, parameters: Map(dictionary: [:]))
                 dispatchGroup.enter()
                 try conn.request(request) { (success, responses) in
-                    
+
                     if success == false || responses.count == 0 {
                         XCTFail("Unexpected response")
                     }
-                    
+
                     let request = Request.pullAll()
                     do {
                         try conn.request(request) { (success, responses) in
@@ -224,34 +224,34 @@ class bolt_swiftTests: XCTestCase {
                     } catch(let error) {
                         print("Unexpected error while pulling: \(error)")
                     }
-                    
+
                 }
             }
-            
+
         }
 
     }
-    
+
     func testMichaels100kCannotFitInATransaction() throws {
         let stmt1 = "WITH [\"Andres\",\"Wes\",\"Rik\",\"Mark\",\"Peter\",\"Kenny\",\"Michael\",\"Stefan\",\"Max\",\"Chris\"] AS names " +
         "FOREACH (r IN range(0,100000) | CREATE (:User {id:r, name:names[r % size(names)]+\" \"+r}))"
         let stmt2 = "create index on :User(id)"
-        
+
         try performAsLoggedIn { (conn, dispatchGroup) in
             do {
                 for statement in [ "BEGIN", stmt1, stmt2, "ROLLBACK" ] {
-                    
+
                     if statement == "ROLLBACK" {
                         XCTFail("Should never get here")
                     }
-                    
+
                     let request = Request.run(statement: statement, parameters: Map(dictionary: [:]))
                     dispatchGroup.enter()
                     try conn.request(request) { (success, responses) in
                         defer {
                             dispatchGroup.leave()
                         }
-                        
+
                         let request = Request.pullAll()
                         dispatchGroup.enter()
                         do {
@@ -274,15 +274,15 @@ class bolt_swiftTests: XCTestCase {
                     XCTFail("Expected a response error")
                 }
             }
-            
+
         }
     }
-    
+
     func performAsLoggedIn(block: @escaping (Connection, DispatchGroup) throws -> ()) throws {
 
         let settings = ConnectionSettings(username: kUsername, password: kPasscode)
         let conn = try Connection(hostname: kHostname, settings: settings)
-        
+
         let dispatchGroup = DispatchGroup()
         dispatchGroup.enter()
         try conn.connect { success in
@@ -297,17 +297,17 @@ class bolt_swiftTests: XCTestCase {
         dispatchGroup.wait()
     }
 
-    
+
     func testRubbishCypher() throws {
         let stmt = "42"
-        
+
         try performAsLoggedIn { (conn, dispatchGroup) in
 
             let request = Request.run(statement: stmt, parameters: Map(dictionary: [:]))
             dispatchGroup.enter()
             do {
                 try conn.request(request) { (success, responses) in
-                    
+
                     XCTFail("Unexpected response")
                     dispatchGroup.leave()
                 }
@@ -317,80 +317,80 @@ class bolt_swiftTests: XCTestCase {
             }
         }
     }
-    
+
     func testUnwind() throws {
         let stmt = "UNWIND RANGE(1, 10) AS n RETURN n"
 
         try performAsLoggedIn { (conn, dispatchGroup) in
-            
+
             let request = Request.run(statement: stmt, parameters: Map(dictionary: [:]))
             dispatchGroup.enter()
             try conn.request(request) { (success, responses) in
                 defer {
                     dispatchGroup.leave()
                 }
-                
+
                 let request = Request.pullAll()
                 dispatchGroup.enter()
                 try conn.request(request) { (success, responses) in
                     defer {
                         dispatchGroup.leave()
                     }
-                    
+
                     XCTAssertTrue(success)
-                    
+
                     let records = responses.filter { $0.category == .record }
                     XCTAssertEqual(10, records.count)
                 }
-                
+
             }
-            
+
         }
-        
+
     }
-    
+
     func testUnwindWithToNodes() throws {
         let stmt = "UNWIND RANGE(1, 10) AS n RETURN n, n * n as n_sq"
-        
+
         try performAsLoggedIn { (conn, dispatchGroup) in
-            
+
             let request = Request.run(statement: stmt, parameters: Map(dictionary: [:]))
             dispatchGroup.enter()
             try conn.request(request) { (success, responses) in
                 defer {
                     dispatchGroup.leave()
                 }
-                
+
                 XCTAssertEqual(1, responses.count)
                 let fields = (responses[0].items[0] as! Map).dictionary["fields"] as! List
                 XCTAssertEqual(2, fields.items.count)
-                
+
                 let request = Request.pullAll()
                 dispatchGroup.enter()
                 try conn.request(request) { (success, responses) in
                     defer {
                         dispatchGroup.leave()
                     }
-                    
+
                     XCTAssertTrue(success)
-                    
+
                     let records = responses.filter { $0.category == .record && ($0.items[0] as! List).items.count == 2 }
                     XCTAssertEqual(10, records.count)
                 }
-                
+
             }
         }
-        
+
     }
 
 }
 
 struct Node {
-    
+
     public let id: UInt64
     public let labels: [String]
     public let properties: [String: PackProtocol]
-    
+
 }
 
 
@@ -400,15 +400,15 @@ extension Response {
             items.count != 1 {
             return nil
         }
-        
+
         let list = items[0] as? List
         guard let items = list?.items,
             items.count == 1,
-            
+
             let structure = items[0] as? Structure,
             structure.signature == Response.RecordType.node,
             structure.items.count == 3,
-            
+
             let nodeId = structure.items.first?.asUInt64(),
             let labelList = structure.items[1] as? List,
             let labels = labelList.items as? [String],
@@ -416,9 +416,9 @@ extension Response {
             else {
                 return nil
         }
-        
+
         let properties = propertyMap.dictionary
-        
+
         let node = Node(id: UInt64(nodeId), labels: labels, properties: properties)
         return node
     }

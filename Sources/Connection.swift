@@ -72,7 +72,7 @@ public class Connection: NSObject {
         case ignored = 0x7e
         case failure = 0x7f
     }
-    
+
     private func chunkAndSend(request: Request) throws {
 
         let chunks = try request.chunk()
@@ -84,7 +84,7 @@ public class Connection: NSObject {
         }
 
     }
-    
+
     private func parseMeta(_ meta: [PackProtocol]) {
         for item in meta {
             if let map = item as? Map {
@@ -116,24 +116,24 @@ public class Connection: NSObject {
 
         let responseData = try socket.receive(expectedNumberOfBytes: 1024) //TODO: Ensure I get all chunks back
         let unchunkedResponsesAsBytes = try Response.unchunk(responseData)
-        
+
         var responses = [Response]()
         var success = true
         for responseBytes in unchunkedResponsesAsBytes {
             let response = try Response.unpack(responseBytes)
             responses.append(response)
-            
+
             if let error = response.asError() {
                 throw error
             }
-            
+
             if response.category != .record {
                 parseMeta(response.items)
             }
-            
+
             success = success && response.category != .failure
         }
-        
+
         try completionHandler(success, responses)
     }
 
