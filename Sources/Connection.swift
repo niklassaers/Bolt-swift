@@ -53,11 +53,11 @@ public class Connection: NSObject {
         }
 
         let responseData = try socket.receive(expectedNumberOfBytes: 1024) //TODO: Ensure I get all chunks back
-        let unchunkedData = try Response.unchunk(responseData)
-        let _ = try Response.unpack(unchunkedData)
-        //let response = try Response.unpack(unchunkedData)
-
-        // TODO: throw ConnectionError.authenticationError on error
+        let unchunkedResponseDatas = try Response.unchunk(responseData)
+        for unchunkedResponseData in unchunkedResponseDatas {
+            let _ = try Response.unpack(unchunkedResponseData)
+            // TODO: throw ConnectionError.authenticationError on error
+        }
     }
 
     public enum ConnectionError: Error {
@@ -110,22 +110,31 @@ public class Connection: NSObject {
         }
     }
 
-    public func request(_ request: Request, completionHandler: (Bool, Response?) throws -> Void) throws {
+    public func request(_ request: Request, completionHandler: (Bool, [Response]) throws -> Void) throws {
 
         try chunkAndSend(request: request)
 
         let responseData = try socket.receive(expectedNumberOfBytes: 1024) //TODO: Ensure I get all chunks back
-        let unchunkedData = try Response.unchunk(responseData)
-        let response = try Response.unpack(unchunkedData)
-        if let error = response.asError() {
-            throw error
+        let unchunkedResponsesAsBytes = try Response.unchunk(responseData)
+        
+        var responses = [Response]()
+        var success = true
+        for responseBytes in unchunkedResponsesAsBytes {
+            let response = try Response.unpack(responseBytes)
+            responses.append(response)
+            
+            if let error = response.asError() {
+                throw error
+            }
+            
+            if response.category != .record {
+                parseMeta(response.items)
+            }
+            
+            success = success && response.category != .failure
         }
         
-        if response.category != .record {
-            parseMeta(response.items)
-        }
-        
-        try completionHandler(response.category != .failure, response)
+        try completionHandler(success, responses)
     }
 
 }

@@ -7,6 +7,7 @@ import PackStream
 
 @testable import Bolt
 
+fileprivate let kHostname = "localhost"
 fileprivate let kUsername = "neo4j"
 fileprivate let kPasscode = "<passcode>"
 
@@ -15,7 +16,7 @@ class bolt_swiftTests: XCTestCase {
         let connectionExp = expectation(description: "Login successful")
 
         let settings = ConnectionSettings(username: kUsername, password: kPasscode)
-        let conn = try Connection(hostname: "localhost", settings: settings)
+        let conn = try Connection(hostname: kHostname, settings: settings)
         try conn.connect { (success) in
             do {
                 if success == true {
@@ -60,9 +61,9 @@ class bolt_swiftTests: XCTestCase {
 
         let request = Request.pullAll()
         print("pull all")
-        try conn.request(request) { (success, response) in
+        try conn.request(request) { (success, responses) in
             print("got result \(success)")
-            if response != nil && success == true {
+            if responses.count > 0 && success == true {
                 pullAllExp.fulfill()
             }
         }
@@ -200,7 +201,7 @@ class bolt_swiftTests: XCTestCase {
         let exp = expectation(description: "All statements success")
 
         let settings = ConnectionSettings(username: kUsername, password: kPasscode)
-        let conn = try Connection(hostname: "localhost", settings: settings)
+        let conn = try Connection(hostname: kHostname, settings: settings)
         try conn.connect { (success) in
             do {
                 if success == true {
@@ -211,16 +212,16 @@ class bolt_swiftTests: XCTestCase {
 
                         let request = Request.run(statement: statement, parameters: Map(dictionary: [:]))
                         dispatchGroup.enter()
-                        try conn.request(request) { (success, response) in
+                        try conn.request(request) { (success, responses) in
 
-                            if success == false || response == nil {
+                            if success == false || responses.count == 0 {
                                 XCTFail("Unexpected response")
                             }
 
                             let request = Request.pullAll()
                             do {
-                                try conn.request(request) { (success, response) in
-                                    if success == false || response == nil {
+                                try conn.request(request) { (success, responses) in
+                                    if success == false || responses.count == 0 {
                                         XCTFail("Unexpected response")
                                     }
                                     dispatchGroup.leave()
@@ -255,7 +256,7 @@ class bolt_swiftTests: XCTestCase {
         let exp = expectation(description: "All statements success")
         
         let settings = ConnectionSettings(username: kUsername, password: kPasscode)
-        let conn = try Connection(hostname: "localhost", settings: settings)
+        let conn = try Connection(hostname: kHostname, settings: settings)
         try conn.connect { (success) in
             do {
                 if success == true {
@@ -270,11 +271,11 @@ class bolt_swiftTests: XCTestCase {
                         
                         let request = Request.run(statement: statement, parameters: Map(dictionary: [:]))
                         dispatchGroup.enter()
-                        try conn.request(request) { (success, response) in
+                        try conn.request(request) { (success, responses) in
 
                             let request = Request.pullAll()
                             do {
-                                try conn.request(request) { (success, response) in
+                                try conn.request(request) { (success, responses) in
                                     dispatchGroup.leave()
                                 }
                             } catch(let error) {
@@ -305,7 +306,7 @@ class bolt_swiftTests: XCTestCase {
         let exp = expectation(description: "Rubbish cypher failed correctly")
         
         let settings = ConnectionSettings(username: kUsername, password: kPasscode)
-        let conn = try Connection(hostname: "localhost", settings: settings)
+        let conn = try Connection(hostname: kHostname, settings: settings)
         try conn.connect { (success) in
             if success == false {
                 XCTFail("Could not log in")
@@ -317,7 +318,7 @@ class bolt_swiftTests: XCTestCase {
                 
                 let request = Request.run(statement: stmt, parameters: Map(dictionary: [:]))
                 dispatchGroup.enter()
-                try conn.request(request) { (success, response) in
+                try conn.request(request) { (success, responses) in
                     
                     XCTFail("Unexpected response")
                     exp.fulfill()
@@ -336,6 +337,58 @@ class bolt_swiftTests: XCTestCase {
         }
         
     }
+    
+    func testUnwind() throws {
+        let stmt = "UNWIND RANGE(1, 10) AS n RETURN n"
+        //let exp = expectation(description: "Unwind statement returned numbers 1 to 10")
+
+        let settings = ConnectionSettings(username: kUsername, password: kPasscode)
+        let conn = try Connection(hostname: kHostname, settings: settings)
+        try conn.connect { (success) in
+            if success == false {
+                XCTFail("Could not log in")
+                return
+            }
+            
+            let dispatchGroup = DispatchGroup()
+            do {
+                
+                let request = Request.run(statement: stmt, parameters: Map(dictionary: [:]))
+                dispatchGroup.enter()
+                try conn.request(request) { (success, responses) in
+                    defer {
+                        dispatchGroup.leave()
+                    }
+
+                    let request = Request.pullAll()
+                    dispatchGroup.enter()
+                    try conn.request(request) { (success, responses) in
+                        defer {
+                            dispatchGroup.leave()
+                        }
+
+                        XCTAssertTrue(success)
+                        
+                        let records = responses.filter { $0.category == .record }
+                        XCTAssertEqual(10, records.count)
+                    }
+                    
+                }
+            } catch {
+                //exp.fulfill()
+                dispatchGroup.leave()
+            }
+            
+            dispatchGroup.wait()
+        }
+        
+        /*
+        self.waitForExpectations(timeout: 300000) { (_) in
+            print("Done")
+        }*/
+        
+    }
+
 }
 
 struct Node {

@@ -65,7 +65,20 @@ public struct Response {
         return nil
     }
 
-    public static func unchunk(_ bytes: [Byte]) throws -> [Byte] {
+    public static func unchunk(_ bytes: [Byte]) throws -> [[Byte]] {
+        var pos = 0
+        var responses = [[Byte]]()
+        
+        while pos < bytes.count {
+            let (responseBytes, endPos) = try unchunk(bytes[pos..<bytes.count], fromPos: pos)
+            responses.append(responseBytes)
+            pos = endPos
+        }
+        
+        return responses
+    }
+    
+    private static func unchunk(_ bytes: ArraySlice<Byte>, fromPos: Int = 0) throws -> ([Byte], Int) {
 
         if bytes.count < 2 {
             throw ResponseError.tooFewBytes
@@ -73,7 +86,7 @@ public struct Response {
 
         var chunks = [[Byte]]()
         var hasMoreChunks = true
-        var pos = 0
+        var pos = fromPos
 
         while hasMoreChunks == true {
 
@@ -91,9 +104,11 @@ public struct Response {
             }
         }
 
-        return chunks.reduce([Byte](), { (result, chunk) -> [Byte] in
+        let unchunkedResponseBytes = chunks.reduce([Byte](), { (result, chunk) -> [Byte] in
             return result + chunk
         })
+        
+        return (unchunkedResponseBytes, pos)
     }
 
     public static func unpack(_ bytes: [Byte]) throws -> Response {
