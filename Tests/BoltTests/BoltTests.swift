@@ -12,6 +12,7 @@ fileprivate let kUsername = "neo4j"
 fileprivate let kPasscode = "<passcode>"
 
 class bolt_swiftTests: XCTestCase {
+    
     func testConnection() throws {
         let connectionExp = expectation(description: "Login successful")
 
@@ -81,6 +82,8 @@ class bolt_swiftTests: XCTestCase {
             ("testMichaels100k", testMichaels100k),
             ("testMichaels100kCannotFitInATransaction", testMichaels100kCannotFitInATransaction),
             ("testRubbishCypher", testRubbishCypher),
+            ("testUnwind", testUnwind),
+            ("testUnwindWithToNodes", testUnwindWithToNodes),
         ]
     }
 
@@ -198,52 +201,33 @@ class bolt_swiftTests: XCTestCase {
                     "order by count(*) desc " +
                     "limit 5;"
 
-        let exp = expectation(description: "All statements success")
+        try performAsLoggedIn { (conn, dispatchGroup) in
 
-        let settings = ConnectionSettings(username: kUsername, password: kPasscode)
-        let conn = try Connection(hostname: kHostname, settings: settings)
-        try conn.connect { (success) in
-            do {
-                if success == true {
-
-                    let dispatchGroup = DispatchGroup()
-
-                    for statement in [ stmt1, stmt2, stmt3, stmt4, stmt5, stmt6, stmt7, stmt8 ] {
-
-                        let request = Request.run(statement: statement, parameters: Map(dictionary: [:]))
-                        dispatchGroup.enter()
+            for statement in [ stmt1, stmt2, stmt3, stmt4, stmt5, stmt6, stmt7, stmt8 ] {
+                
+                let request = Request.run(statement: statement, parameters: Map(dictionary: [:]))
+                dispatchGroup.enter()
+                try conn.request(request) { (success, responses) in
+                    
+                    if success == false || responses.count == 0 {
+                        XCTFail("Unexpected response")
+                    }
+                    
+                    let request = Request.pullAll()
+                    do {
                         try conn.request(request) { (success, responses) in
-
                             if success == false || responses.count == 0 {
                                 XCTFail("Unexpected response")
                             }
-
-                            let request = Request.pullAll()
-                            do {
-                                try conn.request(request) { (success, responses) in
-                                    if success == false || responses.count == 0 {
-                                        XCTFail("Unexpected response")
-                                    }
-                                    dispatchGroup.leave()
-                                }
-                            } catch(let error) {
-                                print("Unexpected error while pulling: \(error)")
-                            }
-
+                            dispatchGroup.leave()
                         }
-
-                        dispatchGroup.wait()
+                    } catch(let error) {
+                        print("Unexpected error while pulling: \(error)")
                     }
-
-                    exp.fulfill()
+                    
                 }
-            } catch(let error) {
-                XCTFail("Did not expect any errors, but got \(error)")
             }
-        }
-
-        self.waitForExpectations(timeout: 300000) { (_) in
-            print("Done")
+            
         }
 
     }
@@ -253,186 +237,148 @@ class bolt_swiftTests: XCTestCase {
         "FOREACH (r IN range(0,100000) | CREATE (:User {id:r, name:names[r % size(names)]+\" \"+r}))"
         let stmt2 = "create index on :User(id)"
         
-        let exp = expectation(description: "All statements success")
-        
-        let settings = ConnectionSettings(username: kUsername, password: kPasscode)
-        let conn = try Connection(hostname: kHostname, settings: settings)
-        try conn.connect { (success) in
+        try performAsLoggedIn { (conn, dispatchGroup) in
             do {
-                if success == true {
+                for statement in [ "BEGIN", stmt1, stmt2, "ROLLBACK" ] {
                     
-                    let dispatchGroup = DispatchGroup()
-                    
-                    for statement in [ "BEGIN", stmt1, stmt2, "ROLLBACK" ] {
-                        
-                        if statement == "ROLLBACK" {
-                            XCTFail("Should never get here")
-                        }
-                        
-                        let request = Request.run(statement: statement, parameters: Map(dictionary: [:]))
-                        dispatchGroup.enter()
-                        try conn.request(request) { (success, responses) in
-
-                            let request = Request.pullAll()
-                            do {
-                                try conn.request(request) { (success, responses) in
-                                    dispatchGroup.leave()
-                                }
-                            } catch(let error) {
-                                print("Unexpected error while pulling: \(error)")
-                            }
-                        }
-                        
-                        dispatchGroup.wait()
+                    if statement == "ROLLBACK" {
+                        XCTFail("Should never get here")
                     }
                     
+                    let request = Request.run(statement: statement, parameters: Map(dictionary: [:]))
+                    dispatchGroup.enter()
+                    try conn.request(request) { (success, responses) in
+                        defer {
+                            dispatchGroup.leave()
+                        }
+                        
+                        let request = Request.pullAll()
+                        dispatchGroup.enter()
+                        do {
+                            try conn.request(request) { (success, responses) in
+                                dispatchGroup.leave()
+                            }
+                        } catch(let error) {
+                            dispatchGroup.leave()
+                            print("Unexpected error while pulling: \(error)")
+                        }
+                    }
                 }
-            } catch {
-                // In a transaction: Cannot update schema after data update
-                exp.fulfill()
+            } catch (let error) {
+                dispatchGroup.leave()
+
+                switch error {
+                case let Response.ResponseError.forbiddenDueToTransactionType(message):
+                    XCTAssertEqual("Cannot perform schema updates in a transaction that has performed data updates.", message)
+                default:
+                    XCTFail("Expected a response error")
+                }
             }
+            
         }
+    }
+    
+    func performAsLoggedIn(block: @escaping (Connection, DispatchGroup) throws -> ()) throws {
+
+        let settings = ConnectionSettings(username: kUsername, password: kPasscode)
+        let conn = try Connection(hostname: kHostname, settings: settings)
         
-        self.waitForExpectations(timeout: 300000) { (_) in
-            print("Done")
+        let dispatchGroup = DispatchGroup()
+        dispatchGroup.enter()
+        try conn.connect { success in
+            defer {
+                dispatchGroup.leave()
+            }
+
+            XCTAssertTrue(success, "Must be logged in successfully")
+
+            try block(conn, dispatchGroup)
         }
-        
+        dispatchGroup.wait()
     }
 
     
     func testRubbishCypher() throws {
         let stmt = "42"
         
-        let exp = expectation(description: "Rubbish cypher failed correctly")
-        
-        let settings = ConnectionSettings(username: kUsername, password: kPasscode)
-        let conn = try Connection(hostname: kHostname, settings: settings)
-        try conn.connect { (success) in
-            if success == false {
-                XCTFail("Could not log in")
-                return
-            }
+        try performAsLoggedIn { (conn, dispatchGroup) in
 
-            let dispatchGroup = DispatchGroup()
+            let request = Request.run(statement: stmt, parameters: Map(dictionary: [:]))
+            dispatchGroup.enter()
             do {
-                
-                let request = Request.run(statement: stmt, parameters: Map(dictionary: [:]))
-                dispatchGroup.enter()
                 try conn.request(request) { (success, responses) in
                     
                     XCTFail("Unexpected response")
-                    exp.fulfill()
                     dispatchGroup.leave()
                 }
             } catch {
-                exp.fulfill()
+                // Happy path
                 dispatchGroup.leave()
             }
-            
-            dispatchGroup.wait()
         }
-        
-        self.waitForExpectations(timeout: 300000) { (_) in
-            print("Done")
-        }
-        
     }
     
     func testUnwind() throws {
         let stmt = "UNWIND RANGE(1, 10) AS n RETURN n"
-        //let exp = expectation(description: "Unwind statement returned numbers 1 to 10")
 
-        let settings = ConnectionSettings(username: kUsername, password: kPasscode)
-        let conn = try Connection(hostname: kHostname, settings: settings)
-        try conn.connect { (success) in
-            if success == false {
-                XCTFail("Could not log in")
-                return
-            }
+        try performAsLoggedIn { (conn, dispatchGroup) in
             
-            let dispatchGroup = DispatchGroup()
-            do {
+            let request = Request.run(statement: stmt, parameters: Map(dictionary: [:]))
+            dispatchGroup.enter()
+            try conn.request(request) { (success, responses) in
+                defer {
+                    dispatchGroup.leave()
+                }
                 
-                let request = Request.run(statement: stmt, parameters: Map(dictionary: [:]))
+                let request = Request.pullAll()
                 dispatchGroup.enter()
                 try conn.request(request) { (success, responses) in
                     defer {
                         dispatchGroup.leave()
                     }
-
-                    let request = Request.pullAll()
-                    dispatchGroup.enter()
-                    try conn.request(request) { (success, responses) in
-                        defer {
-                            dispatchGroup.leave()
-                        }
-
-                        XCTAssertTrue(success)
-                        
-                        let records = responses.filter { $0.category == .record }
-                        XCTAssertEqual(10, records.count)
-                    }
                     
+                    XCTAssertTrue(success)
+                    
+                    let records = responses.filter { $0.category == .record }
+                    XCTAssertEqual(10, records.count)
                 }
-            } catch {
-                //exp.fulfill()
-                dispatchGroup.leave()
+                
             }
             
-            dispatchGroup.wait()
         }
-        
-        /*
-        self.waitForExpectations(timeout: 300000) { (_) in
-            print("Done")
-        }*/
         
     }
     
     func testUnwindWithToNodes() throws {
         let stmt = "UNWIND RANGE(1, 10) AS n RETURN n, n * n as n_sq"
         
-        let settings = ConnectionSettings(username: kUsername, password: kPasscode)
-        let conn = try Connection(hostname: kHostname, settings: settings)
-        try conn.connect { (success) in
-            if success == false {
-                XCTFail("Could not log in")
-                return
-            }
+        try performAsLoggedIn { (conn, dispatchGroup) in
             
-            let dispatchGroup = DispatchGroup()
-            do {
+            let request = Request.run(statement: stmt, parameters: Map(dictionary: [:]))
+            dispatchGroup.enter()
+            try conn.request(request) { (success, responses) in
+                defer {
+                    dispatchGroup.leave()
+                }
                 
-                let request = Request.run(statement: stmt, parameters: Map(dictionary: [:]))
+                XCTAssertEqual(1, responses.count)
+                let fields = (responses[0].items[0] as! Map).dictionary["fields"] as! List
+                XCTAssertEqual(2, fields.items.count)
+                
+                let request = Request.pullAll()
                 dispatchGroup.enter()
                 try conn.request(request) { (success, responses) in
                     defer {
                         dispatchGroup.leave()
                     }
                     
-                    XCTAssertEqual(1, responses.count)
-                    let fields = (responses[0].items[0] as! Map).dictionary["fields"] as! List
-                    XCTAssertEqual(2, fields.items.count)
+                    XCTAssertTrue(success)
                     
-                    let request = Request.pullAll()
-                    dispatchGroup.enter()
-                    try conn.request(request) { (success, responses) in
-                        defer {
-                            dispatchGroup.leave()
-                        }
-                        
-                        XCTAssertTrue(success)
-                        
-                        let records = responses.filter { $0.category == .record && ($0.items[0] as! List).items.count == 2 }
-                        XCTAssertEqual(10, records.count)
-                    }
-                    
+                    let records = responses.filter { $0.category == .record && ($0.items[0] as! List).items.count == 2 }
+                    XCTAssertEqual(10, records.count)
                 }
-            } catch {
-                dispatchGroup.leave()
+                
             }
-            
-            dispatchGroup.wait()
         }
         
     }

@@ -27,11 +27,11 @@ public class Connection: NSObject {
         super.init()
     }
 
-    public func connect(completion: (_ success: Bool) -> Void) throws {
+    public func connect(completion: (_ success: Bool) throws -> Void) throws {
         try socket.connect(timeout: 10)
         try initBolt()
         try initialize()
-        completion(true)
+        try completion(true)
     }
 
     private func initBolt() throws {
