@@ -388,6 +388,54 @@ class bolt_swiftTests: XCTestCase {
         }*/
         
     }
+    
+    func testUnwindWithToNodes() throws {
+        let stmt = "UNWIND RANGE(1, 10) AS n RETURN n, n * n as n_sq"
+        
+        let settings = ConnectionSettings(username: kUsername, password: kPasscode)
+        let conn = try Connection(hostname: kHostname, settings: settings)
+        try conn.connect { (success) in
+            if success == false {
+                XCTFail("Could not log in")
+                return
+            }
+            
+            let dispatchGroup = DispatchGroup()
+            do {
+                
+                let request = Request.run(statement: stmt, parameters: Map(dictionary: [:]))
+                dispatchGroup.enter()
+                try conn.request(request) { (success, responses) in
+                    defer {
+                        dispatchGroup.leave()
+                    }
+                    
+                    XCTAssertEqual(1, responses.count)
+                    let fields = (responses[0].items[0] as! Map).dictionary["fields"] as! List
+                    XCTAssertEqual(2, fields.items.count)
+                    
+                    let request = Request.pullAll()
+                    dispatchGroup.enter()
+                    try conn.request(request) { (success, responses) in
+                        defer {
+                            dispatchGroup.leave()
+                        }
+                        
+                        XCTAssertTrue(success)
+                        
+                        let records = responses.filter { $0.category == .record && ($0.items[0] as! List).items.count == 2 }
+                        XCTAssertEqual(10, records.count)
+                    }
+                    
+                }
+            } catch {
+                dispatchGroup.leave()
+            }
+            
+            dispatchGroup.wait()
+        }
+        
+    }
 
 }
 
