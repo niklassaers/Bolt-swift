@@ -2,6 +2,10 @@ import Foundation
 import XCTest
 import PackStream
 
+#if os(Linux)
+     import Dispatch
+#endif
+    
 @testable import Bolt
 
 class SocketTests {
