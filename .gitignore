@@ -3,3 +3,4 @@
 /Packages
 /*.xcodeproj
 /keys
+/Tests/BoltTests/BoltSwiftTestConfig.json

@@ -5,20 +5,16 @@ import PackStream
 
 @testable import Bolt
 
-fileprivate let kHostname = "localhost"
-fileprivate let kPort = 7687
-fileprivate let kUsername = "neo4j"
-fileprivate let kPasscode = "<passcode>"
-
 class EncryptedSocketTests: XCTestCase {
     
     var socketTests: SocketTests?
 
     override func setUp() {
         do {
-            let configuration = defaultConfiguration()
-            let socket = try EncryptedSocket(hostname: kHostname, port: kPort, configuration: configuration)
-            let settings = ConnectionSettings(username: kUsername, password: kPasscode, userAgent: "BoltTests")
+            let config = TestConfig.loadConfig()
+            let configuration = EncryptedSocket.defaultConfiguration(sslConfig: config.sslConfig, allowHostToBeSelfSigned: config.hostUsesSelfSignedCertificate)
+            let socket = try EncryptedSocket(hostname: config.hostname, port: config.port, configuration: configuration)
+            let settings = ConnectionSettings(username: config.username, password: config.password, userAgent: "BoltTests")
             self.socketTests = SocketTests(socket: socket, settings: settings)
 
         } catch {
@@ -26,30 +22,33 @@ class EncryptedSocketTests: XCTestCase {
         }
     }
     
-    private func defaultConfiguration() -> SSLService.Configuration {
+    /*
+    private func defaultConfiguration(sslConfig: SSLConfiguration, allowHostToBeSelfSigned: Bool) -> SSLService.Configuration {
         
-        let dir = "/Users/niklas/Programming/neo/swift/Bolt-swift/keys"
+        let dir = sslConfig.temporarySSLKeyPath
         #if os(Linux)
             
-            let myCertFile = "\(dir)/cert.pem"
-            let myKeyFile = "\(dir)/key.pem"
+            let myCertFile = "\(dir)/\(sslConfig.certificatePEMFilename)"
+            let myKeyFile = "\(dir)/\(sslConfig.keyFileName)"
             
             let config =  SSLService.Configuration(withCACertificateDirectory: nil,
                                                    usingCertificateFile: myCertFile,
-                                                   withKeyFile: myKeyFile,
-                                                   usingSelfSignedCerts: true)
+                                                   withKeyFile: true,
+                                                   usingSelfSignedCerts: allowHostToBeSelfSigned)
         #else // on macOS & iOS
             
-            let myCertKeyFile = "\(dir)/cert.pfx"
+            let myCertKeyFile = "\(dir)/\(sslConfig.certificatePKCS12FileName)"
             
             let config =  SSLService.Configuration(withChainFilePath: myCertKeyFile,
-                                                   withPassword: "1234",
-                                                   usingSelfSignedCerts: true)
+                                                   withPassword: sslConfig.certificatePKCS12Password,
+                                                   usingSelfSignedCerts: true,
+                                                   clientAllowsSelfSignedCertificates: allowHostToBeSelfSigned)
             
         #endif
         
         return config
     }
+     */
  
     static var allTests: [(String, (EncryptedSocketTests) -> () throws -> Void)] {
         return [

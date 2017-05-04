@@ -13,7 +13,7 @@ class EncryptedSocket {
 
     fileprivate static let readBufferSize = 32768
 
-    init(hostname: String, port: Int, configuration: SSLService.Configuration = EncryptedSocket.defaultConfiguration()) throws {
+    init(hostname: String, port: Int, configuration: SSLService.Configuration) throws {
         self.hostname = hostname
         self.port = port
         self.configuration = configuration
@@ -22,61 +22,59 @@ class EncryptedSocket {
         self.socket.readBufferSize = EncryptedSocket.readBufferSize
     }
 
-    private static func defaultConfiguration() -> SSLService.Configuration {
-
+    public static func defaultConfiguration(sslConfig: SSLConfiguration, allowHostToBeSelfSigned: Bool) -> SSLService.Configuration {
         
-        let dir = "/Users/niklas/Programming/neo/swift/Bolt-swift/keys"
-        
-        
+        let dir = sslConfig.temporarySSLKeyPath
         #if os(Linux)
-
-            let myCertFile = "\(dir)/cert.pem"
-            let myKeyFile = "\(dir)/key.pem"
-
+            
+            let myCertFile = "\(dir)/\(sslConfig.certificatePEMFilename)"
+            let myKeyFile = "\(dir)/\(sslConfig.keyFileName)"
+            
             let config =  SSLService.Configuration(withCACertificateDirectory: nil,
                                                    usingCertificateFile: myCertFile,
-                                                   withKeyFile: myKeyFile,
-                                                   usingSelfSignedCerts: true)
+                                                   withKeyFile: true,
+                                                   usingSelfSignedCerts: allowHostToBeSelfSigned)
         #else // on macOS & iOS
-
-            let myCertKeyFile = "\(dir)/cert.pfx"
-            createPKCS12CertIn(dir: dir)
-
+            
+            let myCertKeyFile = "\(dir)/\(sslConfig.certificatePKCS12FileName)"
+            createPKCS12CertWith(sslConfig: sslConfig)
+            
             let config =  SSLService.Configuration(withChainFilePath: myCertKeyFile,
-                                                   withPassword: "1234",
-                                                   usingSelfSignedCerts: true)
-
+                                                   withPassword: sslConfig.certificatePKCS12Password,
+                                                   usingSelfSignedCerts: true,
+                                                   clientAllowsSelfSignedCertificates: allowHostToBeSelfSigned)
+            
         #endif
-
+        
         return config
     }
     
-    private static func createPKCS12CertIn(dir: String) {
+    private static func createPKCS12CertWith(sslConfig: SSLConfiguration) {
+        
+        let dir = URL(string: sslConfig.temporarySSLKeyPath)!.deletingLastPathComponent().absoluteString
+        let subdir = URL(string: sslConfig.temporarySSLKeyPath)!.lastPathComponent
+        
         do {
-            try shellOut(to: "mv newcert ~/.Trash", at: dir)
+            try shellOut(to: "mv \(subdir) ~/.Trash", at: dir)
         } catch {} // Ignore error
         
         do {
-            try shellOut(to: "mkdir -p newcert", at: dir)
+            try shellOut(to: "mkdir -p \(subdir)", at: dir)
         } catch {}
         
+        let gen = sslConfig.generator
         do {
             try shellOut(to: [
-            "echo \"DK\nEsbjerg\n\nSaers\n\n\n\n\n\n\" > params",
+            "echo \"\(gen.countryName)\n\(gen.stateOrProvinceName)\n\(gen.localityName)\n\(gen.organizationName)\n\(gen.orgUnitName)\n\(gen.commonName)\n\(gen.emailAddress)\n\n\(gen.companyName)\n\" > params",
             
             // Source: https://developer.ibm.com/swift/2016/09/22/securing-kitura-part-1-enabling-ssltls-on-your-swift-server/
-            "openssl genrsa -out key.pem 2048",
-            "openssl req -new -sha256 -key key.pem -out csr.csr < params",
-            "openssl req -x509 -sha256 -days 365 -key key.pem -in csr.csr -out cert.pem",
-            "openssl pkcs12 -password pass:1234 -export -out cert.pfx -inkey key.pem -in cert.pem"
-            ], at: "\(dir)/newcert")
+            "openssl genrsa -out \(sslConfig.keyFileName) 2048",
+            "openssl req -new -sha256 -key \(sslConfig.keyFileName) -out \(gen.signingRequestFileName) < params",
+            "openssl req -x509 -sha256 -days 365 -key \(sslConfig.keyFileName) -in \(gen.signingRequestFileName) -out \(sslConfig.certificatePEMFilename)",
+            "openssl pkcs12 -password pass:\(sslConfig.certificatePKCS12Password) -export -out \(sslConfig.certificatePKCS12FileName) -inkey \(sslConfig.keyFileName) -in \(sslConfig.certificatePEMFilename)"
+            ], at: "\(dir)/\(subdir)")
     
         } catch {} // Ignore output
-
-        do {
-            try shellOut(to: "mv * ..", at: "\(dir)/newcert")
-            try shellOut(to: "rmdir newcert", at: dir)
-        } catch {}
     }
 
 

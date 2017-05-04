@@ -4,19 +4,15 @@ import PackStream
 
 @testable import Bolt
 
-fileprivate let kHostname = "localhost"
-fileprivate let kPort = 7687
-fileprivate let kUsername = "neo4j"
-fileprivate let kPasscode = "<passcode>"
-
 class UnencryptedSocketTests: XCTestCase {
     
     var socketTests: SocketTests?
     
     override func setUp() {
         do {
-            let socket = try UnencryptedSocket(hostname: kHostname, port: kPort)
-            let settings = ConnectionSettings(username: kUsername, password: kPasscode, userAgent: "BoltTests")
+            let config = TestConfig.loadConfig()
+            let socket = try UnencryptedSocket(hostname: config.hostname, port: config.port)
+            let settings = ConnectionSettings(username: config.username, password: config.password, userAgent: "BoltTests")
             
             self.socketTests = SocketTests(socket: socket, settings: settings)
             

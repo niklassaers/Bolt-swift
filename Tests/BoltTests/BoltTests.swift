@@ -7,18 +7,15 @@ import PackStream
 
 @testable import Bolt
 
-fileprivate let kHostname = "localhost"
-fileprivate let kPort = 7687
-fileprivate let kUsername = "neo4j"
-fileprivate let kPasscode = "<passcode>"
-
 class bolt_swiftTests: XCTestCase {
 
     func testConnection() throws {
+        let config = TestConfig.loadConfig()
+        
         let connectionExp = expectation(description: "Login successful")
 
-        let settings = ConnectionSettings(username: kUsername, password: kPasscode)
-        let socket = try UnencryptedSocket(hostname: kHostname, port: kPort)
+        let settings = ConnectionSettings(username: config.username, password: config.password)
+        let socket = try UnencryptedSocket(hostname: config.hostname, port: config.port)
         let conn = Connection(socket: socket, settings: settings)
         try conn.connect { (success) in
             do {
