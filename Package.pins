@@ -10,8 +10,8 @@
     {
       "package": "SSLService",
       "reason": null,
-      "repositoryURL": "https://github.com/IBM-Swift/BlueSSLService.git",
-      "version": "0.12.32"
+      "repositoryURL": "https://github.com/niklassaers/BlueSSLService.git",
+      "version": "0.12.33"
     },
     {
       "package": "ShellOut",

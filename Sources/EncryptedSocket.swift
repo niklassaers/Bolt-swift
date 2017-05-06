@@ -4,7 +4,7 @@ import Socket
 import SSLService
 import ShellOut
 
-class EncryptedSocket {
+public class EncryptedSocket {
 
     let hostname: String
     let port: Int
@@ -13,7 +13,7 @@ class EncryptedSocket {
 
     fileprivate static let readBufferSize = 32768
 
-    init(hostname: String, port: Int, configuration: SSLService.Configuration) throws {
+    public init(hostname: String, port: Int, configuration: SSLService.Configuration) throws {
         self.hostname = hostname
         self.port = port
         self.configuration = configuration
@@ -82,7 +82,7 @@ class EncryptedSocket {
 
 extension EncryptedSocket: SocketProtocol {
 
-    func connect(timeout: Int) throws {
+    public func connect(timeout: Int) throws {
         if let sslService = try SSLService(usingConfiguration: self.configuration) {
             sslService.skipVerification = true
             socket.delegate = sslService
@@ -92,12 +92,12 @@ extension EncryptedSocket: SocketProtocol {
 
     }
 
-    func send(bytes: [Byte]) throws {
+    public func send(bytes: [Byte]) throws {
         let data = Data(bytes: bytes)
         try socket.write(from: data)
     }
 
-    func receive(expectedNumberOfBytes: Int32) throws -> [Byte] {
+    public func receive(expectedNumberOfBytes: Int32) throws -> [Byte] {
         var data = Data(capacity: EncryptedSocket.readBufferSize)
         let numberOfBytes = try socket.read(into: &data)
 
