@@ -5,7 +5,7 @@ let package = Package(
 	dependencies: [
 	    .Package(url: "https://github.com/niklassaers/PackStream-swift.git",
 	                 majorVersion: 0),
-		.Package(url: "https://github.com/IBM-Swift/BlueSSLService.git", majorVersion: 0),
+		.Package(url: "https://github.com/niklassaers/BlueSSLService.git", majorVersion: 0),
 		.Package(url: "https://github.com/JohnSundell/ShellOut.git", majorVersion: 1)
 	    ]
 )
