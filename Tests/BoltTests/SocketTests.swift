@@ -47,17 +47,20 @@ extension SocketTests {
             "return p.name,count(*) " +
             "order by count(*) desc " +
         "limit 5;"
+        let stmt9 = "DROP INDEX ON :User(id)"
+        let stmt10 = "DROP INDEX ON :Product(id)"
+        let stmt11 = "MATCH (n) DETACH DELETE n"
         
         try performAsLoggedIn { (conn, dispatchGroup) in
             
-            for statement in [ stmt1, stmt2, stmt3, stmt4, stmt5, stmt6, stmt7, stmt8 ] {
+            for statement in [ stmt1, stmt2, stmt3, stmt4, stmt5, stmt6, stmt7, stmt8, stmt9, stmt10, stmt11 ] {
                 
                 let request = Request.run(statement: statement, parameters: Map(dictionary: [:]))
                 dispatchGroup.enter()
                 try conn.request(request) { (success, responses) in
                     
                     if success == false || responses.count == 0 {
-                        XCTFail("Unexpected response")
+                        XCTFail("Unexpected response for \(statement)")
                     }
                     
                     let request = Request.pullAll()
@@ -83,10 +86,12 @@ extension SocketTests {
         let stmt1 = "WITH [\"Andres\",\"Wes\",\"Rik\",\"Mark\",\"Peter\",\"Kenny\",\"Michael\",\"Stefan\",\"Max\",\"Chris\"] AS names " +
         "FOREACH (r IN range(0,100000) | CREATE (:User {id:r, name:names[r % size(names)]+\" \"+r}))"
         let stmt2 = "create index on :User(id)"
+        let stmt3 = "DROP INDEX ON :User(id)"
+
         
         try performAsLoggedIn { (conn, dispatchGroup) in
             do {
-                for statement in [ "BEGIN", stmt1, stmt2, "ROLLBACK" ] {
+                for statement in [ "BEGIN", stmt1, stmt2, stmt3,    "ROLLBACK" ] {
                     
                     if statement == "ROLLBACK" {
                         XCTFail("Should never get here")

@@ -9,7 +9,12 @@ class EncryptedSocketTests: XCTestCase {
     
     var socketTests: SocketTests?
 
+    
+    
     override func setUp() {
+        self.continueAfterFailure = false
+        super.setUp()
+        
         do {
             let config = TestConfig.loadConfig()
             let configuration = EncryptedSocket.defaultConfiguration(sslConfig: config.sslConfig, allowHostToBeSelfSigned: config.hostUsesSelfSignedCertificate)

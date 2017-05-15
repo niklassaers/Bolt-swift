@@ -9,6 +9,9 @@ class UnencryptedSocketTests: XCTestCase {
     var socketTests: SocketTests?
     
     override func setUp() {
+        self.continueAfterFailure = false
+        super.setUp()
+        
         do {
             let config = TestConfig.loadConfig()
             let socket = try UnencryptedSocket(hostname: config.hostname, port: config.port)
