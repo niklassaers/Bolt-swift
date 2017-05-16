@@ -27,34 +27,6 @@ class EncryptedSocketTests: XCTestCase {
         }
     }
     
-    /*
-    private func defaultConfiguration(sslConfig: SSLConfiguration, allowHostToBeSelfSigned: Bool) -> SSLService.Configuration {
-        
-        let dir = sslConfig.temporarySSLKeyPath
-        #if os(Linux)
-            
-            let myCertFile = "\(dir)/\(sslConfig.certificatePEMFilename)"
-            let myKeyFile = "\(dir)/\(sslConfig.keyFileName)"
-            
-            let config =  SSLService.Configuration(withCACertificateDirectory: nil,
-                                                   usingCertificateFile: myCertFile,
-                                                   withKeyFile: true,
-                                                   usingSelfSignedCerts: allowHostToBeSelfSigned)
-        #else // on macOS & iOS
-            
-            let myCertKeyFile = "\(dir)/\(sslConfig.certificatePKCS12FileName)"
-            
-            let config =  SSLService.Configuration(withChainFilePath: myCertKeyFile,
-                                                   withPassword: sslConfig.certificatePKCS12Password,
-                                                   usingSelfSignedCerts: true,
-                                                   clientAllowsSelfSignedCertificates: allowHostToBeSelfSigned)
-            
-        #endif
-        
-        return config
-    }
-     */
- 
     static var allTests: [(String, (EncryptedSocketTests) -> () throws -> Void)] {
         return [
             ("testMichaels100k", testMichaels100k),
