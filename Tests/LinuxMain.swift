@@ -1,6 +1,7 @@
 import XCTest
-@testable import bolt_swiftTests
+import BoltTests
 
-XCTMain([
-     testCase(BoltTests.allTests),
-])
+var tests = [XCTestCaseEntry]()
+tests += BoltTests.allTests()
+
+XCTMain(tests)
