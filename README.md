@@ -61,7 +61,7 @@ cd -
 
 And Carthage is now set up. You can now do
 ```bash
-carthage build
+carthage build --platform Mac
 ```
-and you should find a build for macOS, iOS, tvOS and watchOS in Carthage/Build
-
+and you should find a build for macOS. If you want to build for iOS, before generating the Xcode project, remove the ShellOut dependency from Package.swift, and then use --platoform iOS instead.
+tvOS and watchOS builds with Carthage are currently unavailable.
