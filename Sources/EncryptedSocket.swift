@@ -32,7 +32,7 @@ public class EncryptedSocket {
             
             let config =  SSLService.Configuration(withCACertificateDirectory: nil,
                                                    usingCertificateFile: myCertFile,
-                                                   withKeyFile: true,
+                                                   withKeyFile: myKeyFile,
                                                    usingSelfSignedCerts: allowHostToBeSelfSigned)
         #else // on macOS & iOS
             
