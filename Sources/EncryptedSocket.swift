@@ -30,6 +30,8 @@ public class EncryptedSocket {
             let myCertFile = "\(dir)/\(sslConfig.certificatePEMFilename)"
             let myKeyFile = "\(dir)/\(sslConfig.keyFileName)"
             
+            createKeyAndCertWith(sslConfig: sslConfig)
+            
             let config =  SSLService.Configuration(withCACertificateDirectory: nil,
                                                    usingCertificateFile: myCertFile,
                                                    withKeyFile: myKeyFile,
@@ -47,6 +49,33 @@ public class EncryptedSocket {
         #endif
         
         return config
+    }
+    
+    private static func createKeyAndCertWith(sslConfig: SSLConfiguration) {
+        
+        let dir = URL(string: sslConfig.temporarySSLKeyPath)!.deletingLastPathComponent().absoluteString
+        let subdir = URL(string: sslConfig.temporarySSLKeyPath)!.lastPathComponent
+        
+        do {
+            try shellOut(to: "mv \(subdir) ~/.Trash", at: dir)
+        } catch {} // Ignore error
+        
+        do {
+            try shellOut(to: "mkdir -p \(subdir)", at: dir)
+        } catch {}
+        
+        let gen = sslConfig.generator
+        do {
+            try shellOut(to: [
+                "echo \"\(gen.countryName)\n\(gen.stateOrProvinceName)\n\(gen.localityName)\n\(gen.organizationName)\n\(gen.orgUnitName)\n\(gen.commonName)\n\(gen.emailAddress)\n\n\(gen.companyName)\n\" > params",
+                
+                // Source: https://developer.ibm.com/swift/2016/09/22/securing-kitura-part-1-enabling-ssltls-on-your-swift-server/
+                "openssl genrsa -out \(sslConfig.keyFileName) 2048",
+                "openssl req -new -sha256 -key \(sslConfig.keyFileName) -out \(gen.signingRequestFileName) < params",
+                "openssl req -x509 -sha256 -days 365 -key \(sslConfig.keyFileName) -in \(gen.signingRequestFileName) -out \(sslConfig.certificatePEMFilename)",
+                ], at: "\(dir)/\(subdir)")
+            
+        } catch {} // Ignore output
     }
     
     private static func createPKCS12CertWith(sslConfig: SSLConfiguration) {
