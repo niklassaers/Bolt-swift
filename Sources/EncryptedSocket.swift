@@ -2,7 +2,9 @@ import Foundation
 import PackStream
 import Socket
 import SSLService
-import ShellOut
+#if os(macOS) || os(Linux)
+  import ShellOut
+#endif
 
 public class EncryptedSocket {
 
@@ -39,7 +41,10 @@ public class EncryptedSocket {
         #else // on macOS & iOS
             
             let myCertKeyFile = "\(dir)/\(sslConfig.certificatePKCS12FileName)"
-            createPKCS12CertWith(sslConfig: sslConfig)
+            
+            #if os(macOS)
+                createPKCS12CertWith(sslConfig: sslConfig)
+            #endif
             
             let config =  SSLService.Configuration(withChainFilePath: myCertKeyFile,
                                                    withPassword: sslConfig.certificatePKCS12Password,
@@ -51,6 +56,7 @@ public class EncryptedSocket {
         return config
     }
     
+    #if os(Linux)
     private static func createKeyAndCertWith(sslConfig: SSLConfiguration) {
         
         let dir = URL(string: sslConfig.temporarySSLKeyPath)!.deletingLastPathComponent().absoluteString
@@ -77,7 +83,9 @@ public class EncryptedSocket {
             
         } catch {} // Ignore output
     }
+    #endif
     
+    #if os(macOS)
     private static func createPKCS12CertWith(sslConfig: SSLConfiguration) {
         
         let dir = URL(string: sslConfig.temporarySSLKeyPath)!.deletingLastPathComponent().absoluteString
@@ -105,6 +113,7 @@ public class EncryptedSocket {
     
         } catch {} // Ignore output
     }
+    #endif
 
 
 }
