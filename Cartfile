@@ -1,0 +1,3 @@
+github "niklassaers/PackStream-Swift" ~> 0.8.2
+github "IBM-Swift/BlueSocket" ~> 0.12.50
+github "IBM-Swift/BlueSSLService" ~> 0.12.35
