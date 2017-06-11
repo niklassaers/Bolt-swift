@@ -2,9 +2,6 @@ import Foundation
 import PackStream
 import Socket
 import SSLService
-#if os(macOS) || os(Linux)
-  import ShellOut
-#endif
 
 public class EncryptedSocket {
 
@@ -26,96 +23,9 @@ public class EncryptedSocket {
 
     public static func defaultConfiguration(sslConfig: SSLConfiguration, allowHostToBeSelfSigned: Bool) -> SSLService.Configuration {
         
-        let dir = sslConfig.temporarySSLKeyPath
-        #if os(Linux)
-            
-            let myCertFile = "\(dir)/\(sslConfig.certificatePEMFilename)"
-            let myKeyFile = "\(dir)/\(sslConfig.keyFileName)"
-            
-            createKeyAndCertWith(sslConfig: sslConfig)
-            
-            let config =  SSLService.Configuration(withCACertificateDirectory: nil,
-                                                   usingCertificateFile: myCertFile,
-                                                   withKeyFile: myKeyFile,
-                                                   usingSelfSignedCerts: allowHostToBeSelfSigned)
-        #else // on macOS & iOS
-            
-            let myCertKeyFile = "\(dir)/\(sslConfig.certificatePKCS12FileName)"
-            
-            #if os(macOS)
-                createPKCS12CertWith(sslConfig: sslConfig)
-            #endif
-            
-            let config =  SSLService.Configuration(withChainFilePath: myCertKeyFile,
-                                                   withPassword: sslConfig.certificatePKCS12Password,
-                                                   usingSelfSignedCerts: true,
-                                                   clientAllowsSelfSignedCertificates: allowHostToBeSelfSigned)
-            
-        #endif
-        
-        return config
+        let configuration = SSLService.Configuration(withCipherSuite: nil)
+        return configuration
     }
-    
-    #if os(Linux)
-    private static func createKeyAndCertWith(sslConfig: SSLConfiguration) {
-        
-        let dir = URL(string: sslConfig.temporarySSLKeyPath)!.deletingLastPathComponent().absoluteString
-        let subdir = URL(string: sslConfig.temporarySSLKeyPath)!.lastPathComponent
-        
-        do {
-            try shellOut(to: "mv \(subdir) ~/.Trash", at: dir)
-        } catch {} // Ignore error
-        
-        do {
-            try shellOut(to: "mkdir -p \(subdir)", at: dir)
-        } catch {}
-        
-        let gen = sslConfig.generator
-        do {
-            try shellOut(to: [
-                "echo \"\(gen.countryName)\n\(gen.stateOrProvinceName)\n\(gen.localityName)\n\(gen.organizationName)\n\(gen.orgUnitName)\n\(gen.commonName)\n\(gen.emailAddress)\n\n\(gen.companyName)\n\" > params",
-                
-                // Source: https://developer.ibm.com/swift/2016/09/22/securing-kitura-part-1-enabling-ssltls-on-your-swift-server/
-                "openssl genrsa -out \(sslConfig.keyFileName) 2048",
-                "openssl req -new -sha256 -key \(sslConfig.keyFileName) -out \(gen.signingRequestFileName) < params",
-                "openssl req -x509 -sha256 -days 365 -key \(sslConfig.keyFileName) -in \(gen.signingRequestFileName) -out \(sslConfig.certificatePEMFilename)",
-                ], at: "\(dir)/\(subdir)")
-            
-        } catch {} // Ignore output
-    }
-    #endif
-    
-    #if os(macOS)
-    private static func createPKCS12CertWith(sslConfig: SSLConfiguration) {
-        
-        let dir = URL(string: sslConfig.temporarySSLKeyPath)!.deletingLastPathComponent().absoluteString
-        let subdir = URL(string: sslConfig.temporarySSLKeyPath)!.lastPathComponent
-        
-        do {
-            try shellOut(to: "mv \(subdir) ~/.Trash", at: dir)
-        } catch {} // Ignore error
-        
-        do {
-            try shellOut(to: "mkdir -p \(subdir)", at: dir)
-        } catch {}
-        
-        let gen = sslConfig.generator
-        do {
-            try shellOut(to: [
-            "echo \"\(gen.countryName)\n\(gen.stateOrProvinceName)\n\(gen.localityName)\n\(gen.organizationName)\n\(gen.orgUnitName)\n\(gen.commonName)\n\(gen.emailAddress)\n\n\(gen.companyName)\n\" > params",
-            
-            // Source: https://developer.ibm.com/swift/2016/09/22/securing-kitura-part-1-enabling-ssltls-on-your-swift-server/
-            "openssl genrsa -out \(sslConfig.keyFileName) 2048",
-            "openssl req -new -sha256 -key \(sslConfig.keyFileName) -out \(gen.signingRequestFileName) < params",
-            "openssl req -x509 -sha256 -days 365 -key \(sslConfig.keyFileName) -in \(gen.signingRequestFileName) -out \(sslConfig.certificatePEMFilename)",
-            "openssl pkcs12 -password pass:\(sslConfig.certificatePKCS12Password) -export -out \(sslConfig.certificatePKCS12FileName) -inkey \(sslConfig.keyFileName) -in \(sslConfig.certificatePEMFilename)"
-            ], at: "\(dir)/\(subdir)")
-    
-        } catch {} // Ignore output
-    }
-    #endif
-
-
 }
 
 extension EncryptedSocket: SocketProtocol {

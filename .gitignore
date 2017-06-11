@@ -4,3 +4,4 @@
 /*.xcodeproj
 /keys
 /Tests/BoltTests/BoltSwiftTestConfig.json
+fail-example
