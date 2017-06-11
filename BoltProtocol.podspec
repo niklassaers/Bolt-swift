@@ -26,7 +26,7 @@ DESC
   s.source       = { :git => "https://github.com/niklassaers/bolt-swift.git", :tag => "#{s.version}" }
   s.source_files  = "Sources"
 
-  s.dependency 'PackStream', '~> 0.8.1'
+  s.dependency 'PackStream', '~> 0.8.3'
   s.dependency 'BlueSocket', '~> 0.12.53'
   s.dependency 'BlueSSLService', '~> 0.12.43'
   
