@@ -4,12 +4,12 @@ public struct SSLConfiguration {
     public let temporarySSLKeyPath: String
     public let certificatePKCS12FileName: String
     public let certificatePKCS12Password: String
-    
+
     public let keyFileName: String
     public let certificatePEMFilename: String
 
     public let generator: SSLKeyGeneratorConfig
-    
+
     public init(
         temporarySSLKeyPath: String,
         certificatePKCS12FileName: String,
@@ -17,7 +17,7 @@ public struct SSLConfiguration {
         keyFileName: String,
         certificatePEMFilename: String,
         generator: SSLKeyGeneratorConfig) {
-        
+
         self.temporarySSLKeyPath = temporarySSLKeyPath
         self.certificatePKCS12FileName = certificatePKCS12FileName
         self.certificatePKCS12Password = certificatePKCS12Password
@@ -25,7 +25,7 @@ public struct SSLConfiguration {
         self.certificatePEMFilename = certificatePEMFilename
         self.generator = generator
     }
-    
+
     public init(json: [String:Any]) {
         temporarySSLKeyPath = json["temporarySSLKeyPath"] as? String ?? "/tmp/boltTestKeys"
         certificatePKCS12FileName = json["certificatePKCS12FileName"] as? String ?? "cert.pfx"

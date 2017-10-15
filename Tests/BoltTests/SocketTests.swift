@@ -5,13 +5,13 @@ import PackStream
 #if os(Linux)
      import Dispatch
 #endif
-    
+
 @testable import Bolt
 
 class SocketTests {
     var settings: ConnectionSettings
     var socket: SocketProtocol
-    
+
     init(socket: SocketProtocol, settings: ConnectionSettings) {
         self.socket = socket
         self.settings = settings
@@ -19,7 +19,7 @@ class SocketTests {
 }
 
 extension SocketTests {
-    
+
     // source: http://jexp.de/blog/2014/03/quickly-create-a-100k-neo4j-graph-data-model-with-cypher-only/
     func templateMichaels100k() throws {
         let stmt1 = "WITH [\"Andres\",\"Wes\",\"Rik\",\"Mark\",\"Peter\",\"Kenny\",\"Michael\",\"Stefan\",\"Max\",\"Chris\"] AS names " +
@@ -50,19 +50,19 @@ extension SocketTests {
         let stmt9 = "DROP INDEX ON :User(id)"
         let stmt10 = "DROP INDEX ON :Product(id)"
         let stmt11 = "MATCH (n) DETACH DELETE n"
-        
+
         try performAsLoggedIn { (conn, dispatchGroup) in
-            
+
             for statement in [ stmt1, stmt2, stmt3, stmt4, stmt5, stmt6, stmt7, stmt8, stmt9, stmt10, stmt11 ] {
-                
+
                 let request = Request.run(statement: statement, parameters: Map(dictionary: [:]))
                 dispatchGroup.enter()
                 try conn.request(request) { (success, responses) in
-                    
+
                     if success == false || responses.count == 0 {
                         XCTFail("Unexpected response for \(statement)")
                     }
-                    
+
                     let request = Request.pullAll()
                     do {
                         try conn.request(request) { (success, responses) in
@@ -74,36 +74,36 @@ extension SocketTests {
                     } catch(let error) {
                         print("Unexpected error while pulling: \(error)")
                     }
-                    
+
                 }
             }
-            
+
         }
-        
+
     }
-    
+
     func templateMichaels100kCannotFitInATransaction() throws {
         let stmt1 = "WITH [\"Andres\",\"Wes\",\"Rik\",\"Mark\",\"Peter\",\"Kenny\",\"Michael\",\"Stefan\",\"Max\",\"Chris\"] AS names " +
         "FOREACH (r IN range(0,100000) | CREATE (:User {id:r, name:names[r % size(names)]+\" \"+r}))"
         let stmt2 = "create index on :User(id)"
         let stmt3 = "DROP INDEX ON :User(id)"
 
-        
+
         try performAsLoggedIn { (conn, dispatchGroup) in
             do {
                 for statement in [ "BEGIN", stmt1, stmt2, stmt3,    "ROLLBACK" ] {
-                    
+
                     if statement == "ROLLBACK" {
                         XCTFail("Should never get here")
                     }
-                    
+
                     let request = Request.run(statement: statement, parameters: Map(dictionary: [:]))
                     dispatchGroup.enter()
                     try conn.request(request) { (success, responses) in
                         defer {
                             dispatchGroup.leave()
                         }
-                        
+
                         let request = Request.pullAll()
                         dispatchGroup.enter()
                         do {
@@ -118,7 +118,7 @@ extension SocketTests {
                 }
             } catch (let error) {
                 dispatchGroup.leave()
-                
+
                 switch error {
                 case let Response.ResponseError.forbiddenDueToTransactionType(message):
                     XCTAssertEqual("Cannot perform schema updates in a transaction that has performed data updates.", message)
@@ -126,39 +126,39 @@ extension SocketTests {
                     XCTFail("Expected a response error")
                 }
             }
-            
+
         }
     }
-    
+
     func performAsLoggedIn(block: @escaping (Connection, DispatchGroup) throws -> ()) throws {
-        
+
         let conn = Connection(socket: socket, settings: settings)
-        
+
         let dispatchGroup = DispatchGroup()
         dispatchGroup.enter()
         try conn.connect { success in
             defer {
                 dispatchGroup.leave()
             }
-            
+
             XCTAssertTrue(success, "Must be logged in successfully")
-            
+
             try block(conn, dispatchGroup)
         }
         dispatchGroup.wait()
     }
-    
-    
+
+
     func templateRubbishCypher() throws {
         let stmt = "42"
-        
+
         try performAsLoggedIn { (conn, dispatchGroup) in
-            
+
             let request = Request.run(statement: stmt, parameters: Map(dictionary: [:]))
             dispatchGroup.enter()
             do {
                 try conn.request(request) { (success, responses) in
-                    
+
                     XCTFail("Unexpected response")
                     dispatchGroup.leave()
                 }
@@ -168,70 +168,70 @@ extension SocketTests {
             }
         }
     }
-    
+
     func templateUnwind() throws {
         let stmt = "UNWIND RANGE(1, 10) AS n RETURN n"
-        
+
         try performAsLoggedIn { (conn, dispatchGroup) in
-            
+
             let request = Request.run(statement: stmt, parameters: Map(dictionary: [:]))
             dispatchGroup.enter()
             try conn.request(request) { (success, responses) in
                 defer {
                     dispatchGroup.leave()
                 }
-                
+
                 let request = Request.pullAll()
                 dispatchGroup.enter()
                 try conn.request(request) { (success, responses) in
                     defer {
                         dispatchGroup.leave()
                     }
-                    
+
                     XCTAssertTrue(success)
-                    
+
                     let records = responses.filter { $0.category == .record }
                     XCTAssertEqual(10, records.count)
                 }
-                
+
             }
-            
+
         }
-        
+
     }
-    
+
     func templateUnwindWithToNodes() throws {
         let stmt = "UNWIND RANGE(1, 10) AS n RETURN n, n * n as n_sq"
-        
+
         try performAsLoggedIn { (conn, dispatchGroup) in
-            
+
             let request = Request.run(statement: stmt, parameters: Map(dictionary: [:]))
             dispatchGroup.enter()
             try conn.request(request) { (success, responses) in
                 defer {
                     dispatchGroup.leave()
                 }
-                
+
                 XCTAssertEqual(1, responses.count)
                 let fields = (responses[0].items[0] as! Map).dictionary["fields"] as! List
                 XCTAssertEqual(2, fields.items.count)
-                
+
                 let request = Request.pullAll()
                 dispatchGroup.enter()
                 try conn.request(request) { (success, responses) in
                     defer {
                         dispatchGroup.leave()
                     }
-                    
+
                     XCTAssertTrue(success)
-                    
+
                     let records = responses.filter { $0.category == .record && ($0.items[0] as! List).items.count == 2 }
                     XCTAssertEqual(10, records.count)
                 }
-                
+
             }
         }
-        
+
     }
 
 }

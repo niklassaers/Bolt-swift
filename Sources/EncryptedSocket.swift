@@ -22,7 +22,7 @@ public class EncryptedSocket {
     }
 
     public static func defaultConfiguration(sslConfig: SSLConfiguration, allowHostToBeSelfSigned: Bool) -> SSLService.Configuration {
-        
+
         let configuration = SSLService.Configuration(withCipherSuite: nil)
         return configuration
     }
@@ -36,8 +36,12 @@ extension EncryptedSocket: SocketProtocol {
             socket.delegate = sslService
         }
 
-        try socket.connect(to: hostname, port: Int32(port))
-
+        if socket.isConnected == false {
+            try socket.connect(to: hostname, port: Int32(port))
+            print("Connected")
+        } else {
+            print("Socket was already connected")
+        }
     }
 
     public func send(bytes: [Byte]) throws {
@@ -56,5 +60,4 @@ extension EncryptedSocket: SocketProtocol {
 
         return bytes
     }
-
 }

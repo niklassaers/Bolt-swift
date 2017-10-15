@@ -14,7 +14,7 @@ public class Connection: NSObject {
 
     public init(socket: SocketProtocol,
                 settings: ConnectionSettings = ConnectionSettings() ) {
-        
+
         self.socket = socket
         self.settings = settings
 
@@ -46,7 +46,13 @@ public class Connection: NSObject {
             try socket.send(bytes: chunk)
         }
 
-        let responseData = try socket.receive(expectedNumberOfBytes: 1024) //TODO: Ensure I get all chunks back
+        let maxChunkSize = Int32(Request.kMaxChunkSize)
+        var responseData = try socket.receive(expectedNumberOfBytes: maxChunkSize)
+        while (responseData[responseData.count - 1] == 0 && responseData[responseData.count - 2] == 0) == false { // chunk terminated by 0x00 0x00
+            let additionalResponseData = try socket.receive(expectedNumberOfBytes: maxChunkSize)
+            responseData.append(contentsOf: additionalResponseData)
+        }
+
         let unchunkedResponseDatas = try Response.unchunk(responseData)
         for unchunkedResponseData in unchunkedResponseDatas {
             let _ = try Response.unpack(unchunkedResponseData)
@@ -72,9 +78,7 @@ public class Connection: NSObject {
         let chunks = try request.chunk()
 
         for chunk in chunks {
-            let _ = try socket.send(bytes: chunk)
-            // let response = try socket.send(bytes: chunk)
-            // TODO: Use response
+            try socket.send(bytes: chunk)
         }
 
     }
@@ -108,11 +112,17 @@ public class Connection: NSObject {
 
         try chunkAndSend(request: request)
 
-        let responseData = try socket.receive(expectedNumberOfBytes: 1024) //TODO: Ensure I get all chunks back
+        let maxChunkSize = Int32(Request.kMaxChunkSize)
+        var responseData = try socket.receive(expectedNumberOfBytes: maxChunkSize)
+        while (responseData[responseData.count - 1] == 0 && responseData[responseData.count - 2] == 0) == false { // chunk terminated by 0x00 0x00
+            let additionalResponseData = try socket.receive(expectedNumberOfBytes: maxChunkSize)
+            responseData.append(contentsOf: additionalResponseData)
+        }
         let unchunkedResponsesAsBytes = try Response.unchunk(responseData)
 
         var responses = [Response]()
         var success = true
+
         for responseBytes in unchunkedResponsesAsBytes {
             let response = try Response.unpack(responseBytes)
             responses.append(response)

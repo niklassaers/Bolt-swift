@@ -10,7 +10,7 @@ public struct SSLKeyGeneratorConfig {
     public let commonName: String
     public let emailAddress: String
     public let companyName: String
-    
+
     public init(
         signingRequestFileName: String,
         countryName: String,
@@ -21,7 +21,7 @@ public struct SSLKeyGeneratorConfig {
         commonName: String,
         emailAddress: String,
         companyName: String) {
-        
+
         self.signingRequestFileName = signingRequestFileName
         self.countryName = countryName
         self.stateOrProvinceName = stateOrProvinceName
@@ -32,9 +32,9 @@ public struct SSLKeyGeneratorConfig {
         self.emailAddress = emailAddress
         self.companyName = companyName
     }
-    
+
     public init(json: [String:Any]) {
-        
+
         signingRequestFileName = json["signingRequestFileName"] as? String ?? "csr.csr"
         countryName = json["countryName"] as? String ?? "DK"
         stateOrProvinceName = json["stateOrProvinceName"] as? String ?? "Esbjerg"
