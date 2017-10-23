@@ -26,13 +26,14 @@ public struct Response {
         public static let unboundRelationship: Byte = 0x72
     }
 
-    enum ResponseError: Error {
+    public enum ResponseError: Error {
         case tooFewBytes
         case invalidResponseType
         case syntaxError(message: String)
         case indexNotFound(message: String)
         case forbiddenDueToTransactionType(message: String)
         case constraintVerificationFailed(message: String)
+        case requestInvalid(message: String)
     }
 
     public func asError() -> Error? {
@@ -54,6 +55,8 @@ public struct Response {
                     return ResponseError.forbiddenDueToTransactionType(message: message)
                 case "Neo.ClientError.Statement.ConstraintVerificationFailed":
                     return ResponseError.constraintVerificationFailed(message: message)
+                case "Neo.ClientError.Request.Invalid":
+                    return ResponseError.requestInvalid(message: message)
 
                 default:
                     print("Response error with \(code) unknown, thus ignored")
