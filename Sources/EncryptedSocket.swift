@@ -38,7 +38,6 @@ extension EncryptedSocket: SocketProtocol {
 
         if socket.isConnected == false {
             try socket.connect(to: hostname, port: Int32(port))
-            print("Connected")
         } else {
             print("Socket was already connected")
         }
