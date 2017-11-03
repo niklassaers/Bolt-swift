@@ -34,6 +34,11 @@ extension EncryptedSocket: SocketProtocol {
         if let sslService = try SSLService(usingConfiguration: self.configuration) {
             sslService.skipVerification = true
             socket.delegate = sslService
+            
+            sslService.verifyCallback = { _ in
+                
+                return (true, nil)
+            }
         }
 
         if socket.isConnected == false {
