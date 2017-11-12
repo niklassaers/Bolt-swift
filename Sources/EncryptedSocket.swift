@@ -42,6 +42,7 @@ extension EncryptedSocket: SocketProtocol {
         }
 
         if socket.isConnected == false {
+            usleep(10000) // This sleep is anoying, but else SSL may not complete correctly!
             try socket.connect(to: hostname, port: Int32(port))
         } else {
             print("Socket was already connected")
