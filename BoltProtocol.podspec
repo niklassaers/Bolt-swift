@@ -2,7 +2,7 @@ Pod::Spec.new do |s|
 
   s.name         = "BoltProtocol"
   s.module_name  = 'Bolt'
-  s.version      = "0.9.4"
+  s.version      = "0.9.5"
   s.summary      = "Bolt protocol implementation in Swift"
 
   s.description  = <<-DESC
@@ -25,7 +25,7 @@ DESC
   s.source       = { :git => "https://github.com/niklassaers/bolt-swift.git", :tag => "#{s.version}" }
   s.source_files  = "Sources"
 
-  s.dependency 'PackStream', '~> 0.9.7'
+  s.dependency 'PackStream', '~> 0.9.8'
   s.dependency 'BlueSocket', '~> 0.12.76'
   s.dependency 'BlueSSLService', '~> 0.12.64'
   
