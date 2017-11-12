@@ -28,6 +28,10 @@ public class Connection: NSObject {
         try completion(true)
     }
 
+    public func disconnect() {
+        socket.disconnect()
+    }
+
     private func initBolt() throws {
         try socket.send(bytes: [0x60, 0x60, 0xB0, 0x17, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
         let response = try socket.receive(expectedNumberOfBytes: 4)
@@ -55,8 +59,10 @@ public class Connection: NSObject {
 
         let unchunkedResponseDatas = try Response.unchunk(responseData)
         for unchunkedResponseData in unchunkedResponseDatas {
-            let _ = try Response.unpack(unchunkedResponseData)
-            // TODO: throw ConnectionError.authenticationError on error
+            let unpackedResponse = try Response.unpack(unchunkedResponseData)
+            if unpackedResponse.category != .success {
+                throw ConnectionError.authenticationError
+            }
         }
     }
 

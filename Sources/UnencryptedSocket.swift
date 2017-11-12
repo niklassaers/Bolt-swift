@@ -27,6 +27,10 @@ extension UnencryptedSocket: SocketProtocol {
         try socket.connect(to: hostname, port: Int32(port))
     }
 
+    func disconnect() {
+        socket.close()
+    }
+
     func send(bytes: [Byte]) throws {
         let data = Data(bytes: bytes)
         try socket.write(from: data)

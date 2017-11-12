@@ -34,9 +34,9 @@ extension EncryptedSocket: SocketProtocol {
         if let sslService = try SSLService(usingConfiguration: self.configuration) {
             sslService.skipVerification = true
             socket.delegate = sslService
-            
+
             sslService.verifyCallback = { _ in
-                
+
                 return (true, nil)
             }
         }
@@ -46,6 +46,10 @@ extension EncryptedSocket: SocketProtocol {
         } else {
             print("Socket was already connected")
         }
+    }
+
+    public func disconnect() {
+        socket.close()
     }
 
     public func send(bytes: [Byte]) throws {
