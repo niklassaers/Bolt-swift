@@ -2,7 +2,7 @@ Pod::Spec.new do |s|
 
   s.name         = "BoltProtocol"
   s.module_name  = 'Bolt'
-  s.version      = "0.9.5"
+  s.version      = "0.9.6"
   s.summary      = "Bolt protocol implementation in Swift"
 
   s.description  = <<-DESC
