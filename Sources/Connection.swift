@@ -22,7 +22,7 @@ public class Connection: NSObject {
     }
 
     public func connect(completion: (_ success: Bool) throws -> Void) throws {
-        try socket.connect(timeout: 10)
+        try socket.connect(timeout: 10000) // timeout is in ms
         try initBolt()
         try initialize()
         try completion(true)
@@ -52,6 +52,10 @@ public class Connection: NSObject {
 
         let maxChunkSize = Int32(Request.kMaxChunkSize)
         var responseData = try socket.receive(expectedNumberOfBytes: maxChunkSize)
+        while responseData.count < 2 { // sometimes we just need to grab data over again - but how can we know?
+            responseData = try socket.receive(expectedNumberOfBytes: maxChunkSize)
+        }
+        
         while (responseData[responseData.count - 1] == 0 && responseData[responseData.count - 2] == 0) == false { // chunk terminated by 0x00 0x00
             let additionalResponseData = try socket.receive(expectedNumberOfBytes: maxChunkSize)
             responseData.append(contentsOf: additionalResponseData)

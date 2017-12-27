@@ -30,6 +30,7 @@ public class EncryptedSocket {
 
 extension EncryptedSocket: SocketProtocol {
 
+    
     public func connect(timeout: Int) throws {
         if let sslService = try SSLService(usingConfiguration: self.configuration) {
             sslService.skipVerification = true
@@ -53,20 +54,36 @@ extension EncryptedSocket: SocketProtocol {
         socket.close()
     }
 
+    private func checkAndPossiblyReconnectSocket () throws {
+        
+        let (readables, writables) = try Socket.checkStatus(for: [socket])
+        if socket.isConnected == false || readables.count + writables.count < 1 {
+            // reconnect
+            disconnect()
+            try connect(timeout: 10)
+        }
+        
+    }
+    
     public func send(bytes: [Byte]) throws {
+        
+        try checkAndPossiblyReconnectSocket()
+        
         let data = Data(bytes: bytes)
         try socket.write(from: data)
     }
-
+    
     public func receive(expectedNumberOfBytes: Int32) throws -> [Byte] {
+        try checkAndPossiblyReconnectSocket()
+        
         var data = Data(capacity: EncryptedSocket.readBufferSize)
         let numberOfBytes = try socket.read(into: &data)
-
+        
         let bytes = [Byte] (data)
         if(numberOfBytes != bytes.count) {
             print("Expected bytes read doesn't match actual bytes got")
         }
-
+        
         return bytes
     }
 }
