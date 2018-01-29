@@ -10,7 +10,7 @@ public class EncryptedSocket {
     let socket: Socket
     let configuration: SSLService.Configuration
 
-    fileprivate static let readBufferSize = 32768
+    fileprivate static let readBufferSize = 65536
 
     public init(hostname: String, port: Int, configuration: SSLService.Configuration) throws {
         self.hostname = hostname
@@ -30,7 +30,6 @@ public class EncryptedSocket {
 
 extension EncryptedSocket: SocketProtocol {
 
-    
     public func connect(timeout: Int) throws {
         if let sslService = try SSLService(usingConfiguration: self.configuration) {
             sslService.skipVerification = true
@@ -44,7 +43,8 @@ extension EncryptedSocket: SocketProtocol {
 
         if socket.isConnected == false {
             usleep(10000) // This sleep is anoying, but else SSL may not complete correctly!
-            try socket.connect(to: hostname, port: Int32(port))
+            let timeout = UInt(max(0, timeout))
+            try socket.connect(to: hostname, port: Int32(port), timeout: timeout)
         } else {
             print("Socket was already connected")
         }
@@ -55,33 +55,38 @@ extension EncryptedSocket: SocketProtocol {
     }
 
     private func checkAndPossiblyReconnectSocket () throws {
-        
+
         let (readables, writables) = try Socket.checkStatus(for: [socket])
         if socket.isConnected == false || readables.count + writables.count < 1 {
+            print("Reconnecting")
             // reconnect
             disconnect()
-            try connect(timeout: 10)
+            try connect(timeout: 5)
         }
-        
+
     }
-    
+
     public func send(bytes: [Byte]) throws {
-        
+
         try checkAndPossiblyReconnectSocket()
-        
+
         let data = Data(bytes: bytes)
         try socket.write(from: data)
     }
-    
+
     public func receive(expectedNumberOfBytes: Int32) throws -> [Byte] {
         try checkAndPossiblyReconnectSocket()
-        
+
         var data = Data(capacity: EncryptedSocket.readBufferSize)
-        let numberOfBytes = try socket.read(into: &data)
+        var numberOfBytes = try socket.read(into: &data)
+
+        var bytes = [Byte] (data)
         
-        let bytes = [Byte] (data)
-        if(numberOfBytes != bytes.count) {
-            print("Expected bytes read doesn't match actual bytes got")
+        while numberOfBytes != 0 && numberOfBytes % 8192 == 0 {
+            usleep(10000)
+            data = Data(capacity: EncryptedSocket.readBufferSize)
+            numberOfBytes = try socket.read(into: &data)
+            bytes.append(contentsOf: data)
         }
         
         return bytes

@@ -22,7 +22,7 @@ public class Connection: NSObject {
     }
 
     public func connect(completion: (_ success: Bool) throws -> Void) throws {
-        try socket.connect(timeout: 10000) // timeout is in ms
+        try socket.connect(timeout: 5000) // in ms
         try initBolt()
         try initialize()
         try completion(true)
@@ -52,10 +52,6 @@ public class Connection: NSObject {
 
         let maxChunkSize = Int32(Request.kMaxChunkSize)
         var responseData = try socket.receive(expectedNumberOfBytes: maxChunkSize)
-        while responseData.count < 2 { // sometimes we just need to grab data over again - but how can we know?
-            responseData = try socket.receive(expectedNumberOfBytes: maxChunkSize)
-        }
-        
         while (responseData[responseData.count - 1] == 0 && responseData[responseData.count - 2] == 0) == false { // chunk terminated by 0x00 0x00
             let additionalResponseData = try socket.receive(expectedNumberOfBytes: maxChunkSize)
             responseData.append(contentsOf: additionalResponseData)
@@ -124,6 +120,26 @@ public class Connection: NSObject {
 
         let maxChunkSize = Int32(Request.kMaxChunkSize)
         var responseData = try socket.receive(expectedNumberOfBytes: maxChunkSize)
+
+        var i = 0
+        while responseData.count < 2 { // sometimes we just need to grab data over again - but how can we know?
+            responseData = try socket.receive(expectedNumberOfBytes: maxChunkSize)
+            i = i + 1
+            if i > 10 {
+                break // something is absolutely off
+            }
+        }
+
+        if responseData.count < 2 {
+            print("Error, got too little data back")
+            print(request)
+            print(request.command)
+            print(request.items)
+            var responseData = try socket.receive(expectedNumberOfBytes: maxChunkSize)
+            try completionHandler(false, [])
+            return
+        }
+
         while (responseData[responseData.count - 1] == 0 && responseData[responseData.count - 2] == 0) == false { // chunk terminated by 0x00 0x00
             let additionalResponseData = try socket.receive(expectedNumberOfBytes: maxChunkSize)
             responseData.append(contentsOf: additionalResponseData)

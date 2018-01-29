@@ -19,7 +19,7 @@ public struct Request {
         case unchunkError
     }
 
-    static let kMaxChunkSize = 65535
+    static let kMaxChunkSize = 65536
 
     private init(command: Command, items: [PackProtocol]) {
         self.command = command

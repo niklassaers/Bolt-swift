@@ -34,6 +34,7 @@ public struct Response {
         case forbiddenDueToTransactionType(message: String)
         case constraintVerificationFailed(message: String)
         case requestInvalid(message: String)
+        case serverOutOfMemory
     }
 
     public func asError() -> Error? {
@@ -57,6 +58,8 @@ public struct Response {
                     return ResponseError.constraintVerificationFailed(message: message)
                 case "Neo.ClientError.Request.Invalid":
                     return ResponseError.requestInvalid(message: message)
+                case "Neo.TransientError.General.OutOfMemoryError":
+                    return ResponseError.serverOutOfMemory
 
                 default:
                     print("Response error with \(code) unknown, thus ignored")
