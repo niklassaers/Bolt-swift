@@ -77,7 +77,11 @@ public struct Response {
 
         while pos < bytes.count {
             let (responseBytes, endPos) = try unchunk(bytes[pos..<bytes.count], fromPos: pos)
-            responses.append(responseBytes)
+            if responseBytes.count == 0 {
+                // Houston, we have a problem
+            } else {
+                responses.append(responseBytes)
+            }
             pos = endPos
         }
 
@@ -100,13 +104,15 @@ public struct Response {
             pos += 2
             let size = Int(try UInt16.unpack(sizeBytes))
 
-            if size == 0 {
+            if pos+size >= bytes.count {
                 hasMoreChunks = false
             } else {
 
                 let chunk = bytes[pos..<(pos+size)]
                 pos += size
-                chunks.append(Array(chunk))
+                if size > 0 {
+                    chunks.append(Array(chunk))
+                }
             }
         }
 
@@ -118,6 +124,10 @@ public struct Response {
     }
 
     public static func unpack(_ bytes: [Byte]) throws -> Response {
+        
+        if bytes.count == 0 {
+            throw ResponseError.tooFewBytes
+        }
 
         let marker = Packer.Representations.typeFrom(representation: bytes[0])
         switch(marker) {
