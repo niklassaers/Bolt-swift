@@ -18,7 +18,7 @@ To use directly with Xcode, type "swift package generate-xcodeproj"
 ### Swift Package Manager
 Add the following to your dependencies array in Package.swift:
 ```swift
-.Package(url: "https://github.com/niklassaers/bolt-swift.git",
+.Package(url: "https://github.com/Neo4j-Swift/Bolt-swift.git",
  majorVersion: 0),
 ```
 and you can now do a
@@ -40,7 +40,7 @@ to have Bolt included in your Xcode project via CocoaPods
 ### Carthage
 Put 
 ```ogdl
-github "niklassaers/bolt-swift"
+github "Neo4j-Swift/Bolt-swift"
 ```
 in your Cartfile. If this is your entire Cartfile, do
 ```bash
