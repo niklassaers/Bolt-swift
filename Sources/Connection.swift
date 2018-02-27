@@ -135,7 +135,7 @@ public class Connection: NSObject {
             print(request)
             print(request.command)
             print(request.items)
-            var responseData = try socket.receive(expectedNumberOfBytes: maxChunkSize)
+            _ = try socket.receive(expectedNumberOfBytes: maxChunkSize)
             try completionHandler(false, [])
             return
         }
